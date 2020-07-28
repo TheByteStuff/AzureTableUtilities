@@ -1,6 +1,7 @@
 .gitignore.bak
 README.md.bak
 LICENSE.bak
+.vs
 src/.vs
 src/AzureTableUtilities/bin
 src/AzureTableUtilities/obj
