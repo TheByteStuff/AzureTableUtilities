@@ -1,0 +1,13 @@
+.gitignore.bak
+README.md.bak
+LICENSE.bak
+src/.vs
+src/AzureTableUtilities/bin
+src/AzureTableUtilities/obj
+src/AzureTableUtilities/AzureTableUtilities.nuspec.bak
+src/AzureTableUtilities/NuGetCommandLine.txt
+src/AzureTableUtilities/NuGetCommandLine.txt.bak
+src/AzureTableUtilitiesXUnitTest/bin
+src/AzureTableUtilitiesXUnitTest/obj
+src/TestResults
+

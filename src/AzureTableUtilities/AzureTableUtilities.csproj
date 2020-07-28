@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>TheByteStuff.AzureTableUtilities</RootNamespace>
+    <Version>4.2.2</Version>
+    <Company>The Byte Stuff, LLC</Company>
+    <Authors>The Byte Stuff, LLC</Authors>
+    <Description>Backup, Copy, Delete and Restore options for use with Azure Tables.  An alternative to tools such as AZCopy.
+
+Backup destination may be to a local file or to Azure storage blob.  File may be optionally compressed (zipped).
+Copy allows for the same or different connection spec for Source and Destination.
+Restore location may be from local file or Azure storage blob.
+ Blob storage and Azure Table storage connection specs may point to different servers to allow for use in production backup scenarios as well as for restoration of development environments.
+
+Restore/Copy will create the table if it does not exist, however data on an existing table will not be deleted. It may be overwritten depending on the source data.
+
+Delete allows for full table deletion as well as for rows.
+
+When working with Blob storage, a folder in the format {BlobRootName}--table-{TableName} will be used to store the file or retreive the file under the Blob root specified.  File created will be in the format {TableName}_Backup_{TimeStamp}.
+
+Backup, Copy and Delete operations allow for an optional list of filters (Filter) to be provided to select a subset of the source data for the transation.
+
+Refer to project url for code snippets and additional information.
+
+The Byte Stuff, LLC is not affiliated with Microsoft nor has Microsoft endorsed this project.
+
+Personal and commercial use of this software is free; however, a donation is appreciated if you find the software useful.
+
+Code for a command line executable along with sample Docker build is available on GitHub -- https://github.com/TheByteStuff/AzureTableBackupRestore
+
+Suggestions or donations are both appreciated and welcome can be made by using the "Contact" tab at https://www.thebytestuff.com/Contact?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities
+
+v5.0.0-pre - beta including Cosmos Table 2.0.0 Preview
+v4.xxx - Added additional parameter validation,
+v4.2.2 - Corrected problem with filters on backup to blob
+v4.2.1 - Corrected Nuspec to show .Net Standard in docs
+v4.2.0 - Change target framework from .Net Core 2.0 to .Net Standard 2.0
+v4.1.0 - Added RowKey option to Filters, update Microsoft.Azure.Cosmos version to 3.10.1
+v4.0.2 - updated Nuspec to minimum dependent versions
+v4.0.1 - updated Nuspec to minimum dependent versions
+v4.0 - Updated package dependencies to latest released versions, removed Microsoft.Extensions.Configuration; Microsoft.Extensions.Configuration.Json; Microsoft.Extensions.Configuration.FileExtensions as they are not needed by base libraries
+v3.0 - added delete table option, refactored base exception to be AzureTableUtilitiesException, updated class/method documentation
+v2.1 - added Filter constructor, corrected return message on successful copy.
+v2.0 - added "Copy" option as well as Filters.
+v1.0 - Initial release.</Description>
+    <Copyright>2020</Copyright>
+    <PackageProjectUrl>https://www.thebytestuff.com/azure-tables-backup-documentation?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities</PackageProjectUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <PackageLicenseUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageIconUrl>https://github.com/TheByteStuff/AzureTableUtilities/tree/master/src/CardClip_Front.png</PackageIconUrl>
+    <PackageReleaseNotes>Added additional parameter validation, code cleanup in prep for release on GitHub</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.4.4" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.11.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.7" />
+    <PackageReference Include="Microsoft.Azure.Storage.Blob" Version="11.1.7" />
+    <PackageReference Include="Microsoft.Azure.Storage.File" Version="11.1.7" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+  </ItemGroup>
+
+</Project>
