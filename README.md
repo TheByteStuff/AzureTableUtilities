@@ -1,5 +1,7 @@
 # TheByteStuff.AzureTableUtilities
 
+[![Join the chat at https://gitter.im/TheByteStuff/AzureTableUtilities](https://badges.gitter.im/TheByteStuff/AzureTableUtilities.svg)](https://gitter.im/TheByteStuff/AzureTableUtilities?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Backup, Copy, Delete and Restore options for use with Azure Tables.  An alternative to tools such as AZCopy.
 
 
