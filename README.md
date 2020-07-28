@@ -1,4 +1,4 @@
-# TheByteStyff.AzureTableUtilities
+# TheByteStuff.AzureTableUtilities
 
 Backup, Copy, Delete and Restore options for use with Azure Tables.  An alternative to tools such as AZCopy.
 
