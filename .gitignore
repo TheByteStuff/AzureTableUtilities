@@ -2,6 +2,7 @@
 README.md.bak
 LICENSE.bak
 .vs
+src/.axoCover
 src/.vs
 src/AzureTableUtilities/bin
 src/AzureTableUtilities/obj
