@@ -31,7 +31,10 @@ namespace AzureTableUtilitiesXUnitTest
 
         public AzureTableUtilitiesCopyXUnitTest()
         {
-            WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + @"\TestFiles";
+            var codeBaseUrl = new Uri(Assembly.GetExecutingAssembly().CodeBase);
+            var codeBasePath = Uri.UnescapeDataString(codeBaseUrl.AbsolutePath);
+            WorkingDirectory = Path.Combine(Path.GetDirectoryName(codeBasePath), "TestFiles");
+            //WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + @"\TestFiles";
             FileNameThatExists = @"UserProfile_Backup_GoodFooter.txt";
             FileNamePathThatExists_UserProfile = WorkingDirectory + @"\" + FileNameThatExists;
 

@@ -131,9 +131,11 @@ namespace AzureTableUtilitiesXUnitTest
             f1.Value = "2020-01-01";
             Assert.True(Filter.IsValidFilter(f1));
             f1.Value = "2020-01-01 14:00:00";
+            Assert.True(Filter.IsValidTimestamp(f1.Value));
             Assert.True(Filter.IsValidFilter(f1));
             f1.Value = "20020x";
             Assert.False(Filter.IsValidFilter(f1));
+            Assert.False(Filter.IsValidTimestamp(f1.Value));
             f1.Value = "";
             Assert.False(Filter.IsValidFilter(f1));
             f1.Value = null;
