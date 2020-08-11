@@ -157,6 +157,7 @@ namespace AzureTableUtilitiesXUnitTest
             SetFilterToGood(f1);
             f1.Value = "20200101";
             f1.Option = "Timestamp";    // Value is invalid Timestamp, expect fail
+            Assert.False(Filter.IsValidTimestamp(f1.Value));
             Assert.False(Filter.IsValidFilter(f1));
 
             SetFilterToGood(f1);
@@ -165,6 +166,7 @@ namespace AzureTableUtilitiesXUnitTest
 
             SetFilterToGood(f1);
             f1.Option = "InvalidValue";
+            Assert.False(Filter.IsValidOption(f1.Option));
             Assert.False(Filter.IsValidFilter(f1));
 
             SetFilterToGood(f1);
@@ -199,6 +201,10 @@ namespace AzureTableUtilitiesXUnitTest
             ValidList1.Add(f2);
             ValidList1.Add(f3);
             Assert.True(Filter.AreFiltersValid(ValidList1));    //Valid list
+            string FilterSpec = Filter.BuildFilterSpec(ValidList1);
+            Assert.NotNull(FilterSpec);
+            Assert.NotEmpty(FilterSpec);
+            Assert.Equal("((PartitionKey ne 'Test') and (PartitionKey ne 'Test')) or (PartitionKey ne 'Test')", FilterSpec);
 
             List<Filter> InvalidJoin1 = new List<Filter>();
             ValidList1.Add(f4);
