@@ -30,6 +30,8 @@ namespace AzureTableUtilitiesXUnitTest
 
         private SecureString AzureStorageConfigConnectionSecureStringNull = null;
 
+        private SecureString AzureStorageConfigConnectionSecureStringEmpty = new SecureString();
+
         private SecureString AzureStorageConfigConnectionSecureStringNotNull = new SecureString();
         private SecureString AzureBlobStorageConfigConnectionSecureStringNotNull = new SecureString();
 
@@ -47,6 +49,11 @@ namespace AzureTableUtilitiesXUnitTest
             WorkingDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + @"\TestFiles";
             FileNameThatExists = @"UserProfile_Backup_GoodFooter.txt";
             FileNamePathThatExists = WorkingDirectory + @"\" + FileNameThatExists;
+
+            foreach (char c in AzureStorageConfigConnection.ToCharArray())
+            {
+                this.AzureStorageConfigConnectionSecureStringNotNull.AppendChar(c);
+            }
         }
 
         [Fact]
@@ -63,15 +70,21 @@ namespace AzureTableUtilitiesXUnitTest
         [Fact]
         public void TestBackupEmptyConnSpec()
         {
+            Assert.Throws<ConnectionException>(() => new BackupAzureTables(StringNull));
+
             Assert.Throws<ConnectionException>(() => new BackupAzureTables(null, AzureBlobStorageConfigConnection));
             Assert.Throws<ConnectionException>(() => new BackupAzureTables("", AzureBlobStorageConfigConnection));
 
             Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnection, null));
             Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnection, ""));
 
-            Assert.Throws<ConnectionException>(() => new BackupAzureTables(null, AzureBlobStorageConfigConnectionSecureStringNotNull));
-            Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnectionSecureStringNotNull, null));
 
+            Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnectionSecureStringNull));
+            Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnectionSecureStringNotNull, AzureStorageConfigConnectionSecureStringNull));
+            Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnectionSecureStringNull, AzureStorageConfigConnectionSecureStringNotNull));
+
+            Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnectionSecureStringNotNull, AzureStorageConfigConnectionSecureStringEmpty));
+            Assert.Throws<ConnectionException>(() => new BackupAzureTables(AzureStorageConfigConnectionSecureStringEmpty, AzureStorageConfigConnectionSecureStringNotNull));
         }
 
         [Fact]
@@ -81,6 +94,9 @@ namespace AzureTableUtilitiesXUnitTest
             Assert.Throws<ConnectionException>(() => bu.BackupTableToFile(DefaultTableName, WorkingDirectory, false, false, 5));
 
             bu = new BackupAzureTables(AzureStorageConfigConnection, BadConnectionSpec);
+            Assert.Throws<ConnectionException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, WorkingDirectory, false, false, 5, 5));
+
+            bu = new BackupAzureTables(BadConnectionSpec);
             Assert.Throws<ConnectionException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, WorkingDirectory, false, false, 5, 5));
         }
 
@@ -98,16 +114,22 @@ namespace AzureTableUtilitiesXUnitTest
         [Fact]
         public void TestCopyEmptyConnSpec()
         {
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(StringNull));
             Assert.Throws<ConnectionException>(() => new CopyAzureTables(StringNull, AzureBlobStorageConfigConnection));
             Assert.Throws<ConnectionException>(() => new CopyAzureTables("", AzureBlobStorageConfigConnection));
 
             Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnection, StringNull));
-            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnection, ""));
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnection, ""));           
 
-            Assert.Throws<ConnectionException>(() => new CopyAzureTables(null, AzureBlobStorageConfigConnectionSecureStringNotNull));
-            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringNotNull, null));
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringNull));
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringNull, AzureBlobStorageConfigConnectionSecureStringNotNull));
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringNotNull, AzureStorageConfigConnectionSecureStringNull));
 
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringEmpty));
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringEmpty, AzureBlobStorageConfigConnectionSecureStringNotNull));
+            Assert.Throws<ConnectionException>(() => new CopyAzureTables(AzureStorageConfigConnectionSecureStringNotNull, AzureStorageConfigConnectionSecureStringEmpty));
         }
+
 
         [Fact]
         public void TestCopyBadConnSpec()
@@ -137,7 +159,7 @@ namespace AzureTableUtilitiesXUnitTest
             Assert.Throws<ConnectionException>(() => new DeleteAzureTables(""));
 
             Assert.Throws<ConnectionException>(() => new DeleteAzureTables(AzureStorageConfigConnectionSecureStringNull));
-            Assert.Throws<ConnectionException>(() => new DeleteAzureTables(AzureStorageConfigConnectionSecureStringNotNull));
+            Assert.Throws<ConnectionException>(() => new DeleteAzureTables(AzureStorageConfigConnectionSecureStringEmpty));
         }
 
         [Fact]
@@ -166,8 +188,13 @@ namespace AzureTableUtilitiesXUnitTest
             Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnection, null));
             Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnection, ""));
 
-            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(null, AzureBlobStorageConfigConnectionSecureStringNotNull));
-            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringNotNull, null));
+            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringNull));
+            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringNull, AzureBlobStorageConfigConnectionSecureStringNotNull));
+            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringNotNull, AzureStorageConfigConnectionSecureStringNull));
+
+            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringEmpty));
+            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringEmpty, AzureBlobStorageConfigConnectionSecureStringNotNull));
+            Assert.Throws<ConnectionException>(() => new RestoreAzureTables(AzureStorageConfigConnectionSecureStringNotNull, AzureStorageConfigConnectionSecureStringEmpty));
         }
 
 
@@ -316,6 +343,15 @@ namespace AzureTableUtilitiesXUnitTest
             var exceptionFromFileDestinationTableName = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromFile("", "xxxx"));
             Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromFileDestinationTableName));
             Assert.Contains("DestinationTableName is missing.", exceptionFromFileDestinationTableName.ToString());
+
+            var exceptionFromFileInvalidFileNamePath = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromFile(DefaultTableName, "invalid path"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromFileInvalidFileNamePath));
+            Assert.Contains("Invalid file name/path 'invalid path' specified.", exceptionFromFileInvalidFileNamePath.ToString());
+
+            var exceptionFromFileFileDoesNotExist = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromFile(DefaultTableName, @"c:\xxxx.txt"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromFileFileDoesNotExist));
+            Assert.Contains(@"File 'c:\xxxx.txt' does not exist.", exceptionFromFileFileDoesNotExist.ToString());
+
 
             var exceptionFromBlobDestinationTableName = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromBlob("", "xx", "BlobRoot", "workingdir", "blobfilename"));
             Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromBlobDestinationTableName));

@@ -430,6 +430,18 @@
             <param name="filters"></param>
             <returns></returns>
         </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Helper">
+            <summary>
+            Common method for AzureTableUtilities
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Helper.IsSecureStringNullOrEmpty(System.Security.SecureString)">
+            <summary>
+            Test if SecureString is null or empty.
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
         <member name="T:TheByteStuff.AzureTableUtilities.RestoreAzureTables">
             <summary>
             Restore local file or blob file to Azure Table.

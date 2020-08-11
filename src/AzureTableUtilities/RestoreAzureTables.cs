@@ -81,7 +81,7 @@ namespace TheByteStuff.AzureTableUtilities
         /// <param name="AzureBlobConnection">Connection string for Azure Blob Connection as a SecureString</param>
         public RestoreAzureTables(SecureString AzureTableConnection, SecureString AzureBlobConnection)
         {
-            if ((null == AzureTableConnection) || (null == AzureBlobConnection))
+            if (Helper.IsSecureStringNullOrEmpty(AzureTableConnection) || Helper.IsSecureStringNullOrEmpty(AzureBlobConnection))
             {
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }

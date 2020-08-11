@@ -41,7 +41,7 @@ namespace TheByteStuff.AzureTableUtilities
         /// <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
         public DeleteAzureTables(SecureString AzureTableConnection)
         {
-            if ((null == AzureTableConnection) || (AzureTableConnection.Length<1))
+            if (Helper.IsSecureStringNullOrEmpty(AzureTableConnection))
             {
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }

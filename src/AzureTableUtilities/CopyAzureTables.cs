@@ -80,7 +80,7 @@ namespace TheByteStuff.AzureTableUtilities
         /// <param name="AzureDestinationTableConnection">Connection string for Azure Table Connection to be used as destination of Copy command as a SecureString</param>
         public CopyAzureTables(SecureString AzureSourceTableConnection, SecureString AzureDestinationTableConnection)
         {
-            if ((null == AzureSourceTableConnection) || (null == AzureDestinationTableConnection))
+            if (Helper.IsSecureStringNullOrEmpty(AzureSourceTableConnection) || Helper.IsSecureStringNullOrEmpty(AzureDestinationTableConnection))
             {
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
