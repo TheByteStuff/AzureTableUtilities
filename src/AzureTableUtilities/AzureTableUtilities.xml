@@ -1,0 +1,486 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>AzureTableUtilities</name>
+    </assembly>
+    <members>
+        <member name="T:TheByteStuff.AzureTableUtilities.BackupAzureTables">
+            <summary>
+            Backup Azure Table to local file or blob storage.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.#ctor(System.String)">
+            <summary>
+            Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
+            </summary>
+            <param name="AzureConnection">Connection string for Azure Table and Blob Connections; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.#ctor(System.Security.SecureString)">
+            <summary>
+            Constructor, accepts SecureString and sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
+            </summary>
+            <param name="AzureConnection">Connection string for Azure Table and Blob Connections</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.#ctor(System.String,System.String)">
+            <summary>
+            Constructor, allows a different connection spec for Azure Table and Azure Blob storage.
+            </summary>
+            <param name="AzureTableConnection">Connection string for Azure Table Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+            <param name="AzureBlobConnection">Connection string for Azure Blob Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.#ctor(System.Security.SecureString,System.Security.SecureString)">
+            <summary>
+            Constructor, accepts SecureString and allows a different connection spec for Azure Table and Azure Blob storage.
+            </summary>
+            <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
+            <param name="AzureBlobConnection">Connection string for Azure Blob Connection as a SecureString</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.BackupTableToBlob(System.String,System.String,System.String,System.Boolean,System.Boolean,System.Int32,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            Create a blob file copy of the Azure Table specified.
+            </summary>
+            <param name="TableName">Name of Azure Table to backup.</param>
+            <param name="BlobRoot">Name to use as blob root folder.</param>
+            <param name="OutFileDirectory">Local directory (path) with authority to create/write a file.</param>
+            <param name="Compress">True to compress the file.</param>
+            <param name="Validate">True to validate the written record count matches what was queried.</param>
+            <param name="RetentionDays">Process will age files in blob created more than x days ago.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table values extracted.</param> 
+            <returns>A string indicating the name of the blob file created as well as a count of how many files were aged.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.BackupTableToFile(System.String,System.String,System.Boolean,System.Boolean,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            Create a local file copy of the specified Azure Table.
+            </summary>
+            <param name="TableName">Name of Azure Table to backup.</param>
+            <param name="OutFileDirectory">Local directory (path) with authority to create/write a file.</param>
+            <param name="Compress">True to compress the file.</param>
+            <param name="Validate">True to validate the written record count matches what was queried.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
+            <returns>A string containing the name of the file created.</returns>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.CopyAzureTables">
+            <summary>
+            Azure Tables copy functions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.#ctor(System.String)">
+            <summary>
+            Constructor, sets same connection spec for both the Source and Destination Azure Tables.
+            </summary>
+            <param name="AzureConnection">Connection string for Azure Table and Blob Connections; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.#ctor(System.Security.SecureString)">
+            <summary>
+            Constructor, accepts SecureString and sets same connection spec for both the Source and Destination Azure Tables.
+            </summary>
+            <param name="AzureConnection">Connection string for Azure Table and Blob Connections</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.#ctor(System.String,System.String)">
+            <summary>
+            Constructor, allows a different connection spec for Source and Destination Azure Table.
+            </summary>
+            <param name="AzureSourceTableConnection">Connection string for Azure Table Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+            <param name="AzureDestinationTableConnection">Connection string for Azure Table Connection to be used as destination of Copy command; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.#ctor(System.Security.SecureString,System.Security.SecureString)">
+            <summary>
+            Constructor, accepts SecureString and allows a different connection spec for Source and Destination Azure Table.
+            </summary>
+            <param name="AzureSourceTableConnection">Connection string for Azure Table Connection as a SecureString</param>
+            <param name="AzureDestinationTableConnection">Connection string for Azure Table Connection to be used as destination of Copy command as a SecureString</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.CopyTableToTable(System.String,System.String,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            This method will copy entries from SourceTableName to DestinationTableName.  The destination table is NOT deleted first.
+            </summary>
+            <param name="SourceTableName">Name of table to copy from.</param>
+            <param name="DestinationTableName">Name of table to copy to.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table values extracted.</param> 
+            <returns>A string indicating the result of the operation.</returns>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.DeleteAzureTables">
+            <summary>
+            Azure Table delete functions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.DeleteAzureTables.#ctor(System.String)">
+            <summary>
+            Constructor, sets the connection spec for the Azure Tables.
+            </summary>
+            <param name="AzureTableConnection">Connection string for Azure Table; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.DeleteAzureTables.#ctor(System.Security.SecureString)">
+            <summary>
+            Constructor, sets the connection spec for the Azure Tables.
+            </summary>
+            <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.DeleteAzureTables.DeleteAzureTable(System.String,System.Int32)">
+            <summary>
+            This method will delete the table name specified.  The operation will be considered successful even if the table name does not exist.
+            </summary>
+            <param name="TableNameToDelete">Name of table to delete.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <returns>A string indicating the result of the operation.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.DeleteAzureTables.DeleteAndRecreatedAzureTable(System.String,System.Int32)">
+            <summary>
+            This method will delete the table name specified and then recreate it.
+            </summary>
+            <param name="TableNameToDelete">Name of table to delete.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <returns>A string indicating the result of the operation.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.DeleteAzureTables.DeleteAzureTableRows(System.String,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            This method will delete rows for the table name specified corresponding to the filter criteria.  If no filter criteria is specified, all rows will be deleted.
+            </summary>
+            <param name="TableNameToDelete">Name of table from entries will be deleted.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table rows to delete.</param> 
+            <returns>A string indicating the result of the operation.</returns>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.DynamicTableEntityJsonConverter">
+            <summary>
+             Based on classes from https://www.nuget.org/packages/DynamicTableEntityJsonSerializer/1.0.0
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.DynamicTableEntityJsonSerializer">
+            <summary>
+            Based on classes from https://www.nuget.org/packages/DynamicTableEntityJsonSerializer/1.0.0
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.AgingException">
+            <summary>
+            Class for aging exceptions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AgingException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AgingException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AgingException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableBackupException">
+            <summary>
+            Base exception class for this package.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableBackupException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableBackupException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableBackupException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableUtilitiesException">
+            <summary>
+            Base exception class for this package.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableUtilitiesException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableUtilitiesException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.AzureTableUtilitiesException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.BackupFailedException">
+            <summary>
+            Exception for the backup class.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.BackupFailedException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.BackupFailedException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.BackupFailedException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.ConnectionException">
+            <summary>
+            Class for connection related exceptions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.ConnectionException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.ConnectionException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.ConnectionException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.CopyFailedException">
+            <summary>
+            Class for copy operation exceptions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.CopyFailedException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.CopyFailedException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.CopyFailedException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.DeleteFailedException">
+            <summary>
+            Exception class for the delete operations.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.DeleteFailedException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.DeleteFailedException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.DeleteFailedException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.ParameterSpecException">
+            <summary>
+            Class for Parameter spec exceptions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.ParameterSpecException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.ParameterSpecException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.ParameterSpecException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Exceptions.RestoreFailedException">
+            <summary>
+            Ckass for restore operation exceptions.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.RestoreFailedException.#ctor">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.RestoreFailedException.#ctor(System.String)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Exceptions.RestoreFailedException.#ctor(System.String,System.Exception)">
+            <summary>
+            Constructor
+            </summary>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.Filter">
+            <summary>
+            Container class for filter parameters to be used on Backup, Copy or Delete operations to remove records from the destination per filter values.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.#ctor">
+            <summary>
+            Create an empty Filter object.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.#ctor(System.String,System.String,System.String,System.String)">
+            <summary>
+            Constructor to create a Filter object with attributes set.
+            </summary>
+            <param name="Option">The option.</param>
+            <param name="Comparison">The Comparison value.</param>
+            <param name="Value">The Value.</param>
+            <param name="Join">The Join definition (optional)</param>
+        </member>
+        <member name="P:TheByteStuff.AzureTableUtilities.Filter.Join">
+            <summary>
+            The value to use to join the current Filter with the prior Filter
+            </summary>
+        </member>
+        <member name="P:TheByteStuff.AzureTableUtilities.Filter.Option">
+            <summary>
+            The Option for this filter, ex: PartitionKey
+            </summary>
+        </member>
+        <member name="P:TheByteStuff.AzureTableUtilities.Filter.Comparison">
+            <summary>
+            The comparison to use for the value specified.
+            </summary>
+        </member>
+        <member name="P:TheByteStuff.AzureTableUtilities.Filter.Value">
+            <summary>
+            The value of the Option.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.AreFiltersValid(System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            Tests whether the list of Filter objects passed are valid filters.
+            Contextual checks (ex: join must be an empty string on first in list, and populated on others) are made.
+            </summary>
+            <param name="filters"></param>
+            <returns>bool</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.IsValidFilter(TheByteStuff.AzureTableUtilities.Filter)">
+            <summary>
+            Tests whether the passed Filter object is valid.  Note that a filter may be valid for use alone, but not work in a list (ex: Join value must match context of placement in list)
+            </summary>
+            <param name="filter"></param>
+            <returns>bool</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.IsValidOption(System.String)">
+            <summary>
+            Tests if the string passed is a valid filter option.
+            </summary>
+            <param name="Option">Valid values are PartitionKey, RowKey and Timestamp.</param>
+            <returns>bool</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.IsValidComparision(System.String)">
+            <summary>
+            Tests if the string passed is a valid comparison operator for the filter.
+            </summary>
+            <param name="comparison">Valid values are =, ==, Equal, !=, &lt;&gt;, NotEqual, &gt;, GreaterThan, &gt;=, GreaterThanOrEqual, &lt;, LessThan, &lt;=, LessThanOrEqual</param>
+            <returns>bool</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.IsValidTimestamp(System.String)">
+            <summary>
+            Tests if the string passed is a valid Timestamp; .Net DateTimeOffset is used for validation.
+            </summary>
+            <param name="timestamp"></param>
+            <returns>bool</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.IsValidJoin(System.String)">
+            <summary>
+            Tests if the string value passed is a valid Join operator for the filters.
+            </summary>
+            <param name="join">Valid values are empty string, AND, OR</param>
+            <returns>bool</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.ConvertComparisonToOperator(System.String)">
+            <summary>
+            Converts a string containing a Filter compartison value into the value used for the Azure where clause.
+            </summary>
+            <param name="comparison"></param>
+            <returns>string</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Filter.BuildFilterSpec(System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            Build the "Where" clause for the query call of the table being extracted.
+            </summary>
+            <param name="filters"></param>
+            <returns></returns>
+        </member>
+        <member name="T:TheByteStuff.AzureTableUtilities.RestoreAzureTables">
+            <summary>
+            Restore local file or blob file to Azure Table.
+            </summary>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.#ctor(System.String)">
+            <summary>
+            Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
+            </summary>
+            <param name="AzureConnection">Connection string for Azure Table and Blob Connections; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.#ctor(System.Security.SecureString)">
+            <summary>
+            Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
+            </summary>
+            <param name="AzureConnection"></param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.#ctor(System.String,System.String)">
+            <summary>
+            Constructor, allows a different connection spec for Azure Table and Azure Blob storage.
+            </summary>
+            <param name="AzureTableConnection">Connection string for Azure Table Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
+            <param name="AzureBlobConnection">Connection string for Azure Blob Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.#ctor(System.Security.SecureString,System.Security.SecureString)">
+            <summary>
+            Constructor, accepts SecureString and allows a different connection spec for Azure Table and Azure Blob storage.
+            </summary>
+            <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
+            <param name="AzureBlobConnection">Connection string for Azure Blob Connection as a SecureString</param>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.RestoreTableFromBlob(System.String,System.String,System.String,System.String,System.String,System.Int32)">
+            <summary>
+            Restore file created in blob storage by BackupAzureTables to the destination table name specified.
+            </summary>
+            <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
+            <param name="OriginalTableName">Name of the Azure Table originally backed (required for determining blob directory to use)</param>
+            <param name="BlobRoot">Name to use as blob root folder.</param>
+            <param name="WorkingDirectory">Local directory (path) with authority to create/write a file.</param>
+            <param name="BlobFileName">Name of the blob file to restore.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <returns>A string indicating the table restored and record count.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.RestoreTableFromFile(System.String,System.String,System.Int32)">
+            <summary>
+            Restore file created by BackupAzureTables to the destination table name specified.
+            </summary>
+            <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
+            <param name="InFilePathName">Complete file name and path containing the data to be restored.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <returns>A string indicating the table restored and record count.</returns>
+        </member>
+    </members>
+</doc>

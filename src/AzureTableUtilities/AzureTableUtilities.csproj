@@ -59,6 +59,10 @@ v1.0 - Initial release.</Description>
     <PackageId>TheByteStuff.AzureTableUtilities</PackageId>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DocumentationFile>D:\github\TheByteStuff\AzureTableUtilities\src\AzureTableUtilities\AzureTableUtilities.xml</DocumentationFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" Version="12.4.4" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.11.0" />
