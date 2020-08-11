@@ -36,6 +36,9 @@
     <None Update="TestFiles\SystemLogs_ForXUnit.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestFiles\SystemLogs_LargeFile_ForXUnit.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestFiles\UserProfile_Backup_BadFooter.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

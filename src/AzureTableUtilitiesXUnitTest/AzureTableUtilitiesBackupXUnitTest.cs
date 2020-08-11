@@ -32,6 +32,8 @@ namespace AzureTableUtilitiesXUnitTest
         private string FileNameThatExists;
         private string FileNamePathThatExists_UserProfile;
         private string FileNamePathThatExists_SystemLogs;
+        private string FileNamePathThatExists_SystemLogs_LargeFile;
+
 
         public AzureTableUtilitiesBackupXUnitTest()
         {
@@ -46,6 +48,8 @@ namespace AzureTableUtilitiesXUnitTest
             FileNameThatExists = @"SystemLogs_ForXUnit.txt";
             FileNamePathThatExists_SystemLogs = WorkingDirectory + @"\" + FileNameThatExists;
 
+            FileNameThatExists = @"SystemLogs_LargeFile_ForXUnit.txt";
+            FileNamePathThatExists_SystemLogs_LargeFile = WorkingDirectory + @"\" + FileNameThatExists;
         }
 
 
@@ -75,14 +79,14 @@ namespace AzureTableUtilitiesXUnitTest
         }
 
 
-        private void InitializeTables(DeleteAzureTables instanceDelete, RestoreAzureTables instanceRestore)
+        private void InitializeTables(DeleteAzureTables instanceDelete, RestoreAzureTables instanceRestore, string FileNamePath)
         {
             instanceDelete.DeleteAzureTableRows(TableNameTo);
             instanceDelete.DeleteAzureTableRows(TableNameTo2);
             instanceDelete.DeleteAzureTableRows(TableNameFrom);
             instanceDelete.DeleteAzureTableRows(TableNameRestoreTo);
 
-            string restoreResult = instanceRestore.RestoreTableFromFile(TableNameFrom, FileNamePathThatExists_UserProfile);
+            string restoreResult = instanceRestore.RestoreTableFromFile(TableNameFrom, FileNamePath);
             int RestoreCount = ExtractNextInt(restoreResult, "Successful;", "entries");
         }
 
@@ -95,7 +99,7 @@ namespace AzureTableUtilitiesXUnitTest
             DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
             RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
 
-            InitializeTables(instanceDelete, instanceRestore);
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
 
             List<Filter> Filters = new List<Filter>();
             Filters.Add(new Filter("RowKey", "=", "User1"));
@@ -115,6 +119,32 @@ namespace AzureTableUtilitiesXUnitTest
             Assert.Equal(InitialRowCount, VerifyRowCount);
         }
 
+
+        [Fact]
+        public void TestBackupToBlob_LargeFile()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs_LargeFile);
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+            string backupToBlob = instanceBackup.BackupTableToBlob(TableNameFrom, BlobRoot, WorkingDirectory, true, true, 10, 10);
+            //int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlob(TableNameRestoreTo, TableNameFrom, BlobRoot, WorkingDirectory, ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+
         [Fact]
         public void TestBackupToBlobFilters()
         {
@@ -123,7 +153,7 @@ namespace AzureTableUtilitiesXUnitTest
             DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
             RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
 
-            InitializeTables(instanceDelete, instanceRestore);
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
 
             List<Filter> Filters2 = new List<Filter>();
             Filters2.Add(new Filter("RowKey", "=", "User1"));
