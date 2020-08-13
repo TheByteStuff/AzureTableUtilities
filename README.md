@@ -31,4 +31,4 @@ Personal and commercial use of this software is free; however, a donation is app
 
 Code for a command line executable along with sample Docker build is available on GitHub -- https://github.com/TheByteStuff/AzureTableBackupRestore
 
-Suggestions or donations are both appreciated and welcome can be made by using the "Contact" tab at https://www.thebytestuff.com/Contact?utm_source=nuget&amp;utm_medium=www&amp;utm_campaign=AzureTableUtilities
+Suggestions or donations are both appreciated and welcome can be made by using the [Contact" tab](https://www.thebytestuff.com/Contact?utm_source=nuget&amp;utm_medium=www&amp;utm_campaign=AzureTableUtilities).
