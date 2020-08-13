@@ -14,8 +14,6 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class DeleteAzureTables
     {
-        //private static string ThisClassName = "DeleteAzureTables";
-
         private SecureString AzureTableConnectionSpec = new SecureString();
 
         /// <summary>
@@ -105,8 +103,6 @@ namespace TheByteStuff.AzureTableUtilities
                 CosmosTable.CloudTable TableSource = clientSource.GetTableReference(TableNameToDelete);
                 TableSource.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
 
-                //CosmosTable.CloudTable TableDest = TableSource;
-
                 bool BatchWritten = true;
                 string PartitionKey = String.Empty;
                 CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
@@ -137,7 +133,6 @@ namespace TheByteStuff.AzureTableUtilities
                         if (dte.PartitionKey == PartitionKey)
                         {
                             Batch.Delete(dte);
-                            //Batch.InsertOrReplace(dte);
                             BatchCount++;
                             TotalRecordCountOut++;
                             BatchWritten = false;
@@ -150,7 +145,6 @@ namespace TheByteStuff.AzureTableUtilities
                                 Batch = new CosmosTable.TableBatchOperation();
                                 PartitionKey = dte.PartitionKey;
                                 Batch.Delete(dte);
-                                //Batch.InsertOrReplace(dte);
                                 BatchCount = 1;
                                 TotalRecordCountOut++;
                                 BatchWritten = false;
@@ -221,7 +215,6 @@ namespace TheByteStuff.AzureTableUtilities
                 TableToDelete.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
 
                 bool TableExisted = TableToDelete.DeleteIfExists();
-                //TableToDelete.Delete();
 
                 if (Recreate)
                 {

@@ -29,8 +29,6 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class RestoreAzureTables
     {
-        //private static string ThisClassName = "RestoreAzureTables";
-
         private SecureString AzureTableConnectionSpec = new SecureString();
         private SecureString AzureBlobConnectionSpec = new SecureString();
 
@@ -371,7 +369,7 @@ namespace TheByteStuff.AzureTableUtilities
 
 
         /*
-         * BlobRoot = blobl root name
+         * BlobRoot = blob root name
          * BlobDirectoryReference = "directory name"
          * BlockBlobRef = "File name"
          * 

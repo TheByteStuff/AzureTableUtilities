@@ -64,7 +64,6 @@ namespace AzureTableUtilitiesXUnitTest
 
             var exception = Assert.Throws<BackupFailedException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, "baddir", false, false, 30));
             Assert.Contains("ParameterSpecException", exception.InnerException.ToString());
-            System.Console.WriteLine("Test");
         }
 
         [Fact]
