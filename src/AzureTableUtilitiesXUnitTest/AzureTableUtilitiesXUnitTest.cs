@@ -94,9 +94,11 @@ namespace AzureTableUtilitiesXUnitTest
 
             bu = new BackupAzureTables(AzureStorageConfigConnection, BadConnectionSpec);
             Assert.Throws<ConnectionException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, WorkingDirectory, false, false, 5, 5));
+            Assert.Throws<ConnectionException>(() => bu.BackupTableToBlobDirect(DefaultTableName, DefaultBlobRoot, false, 5, 5));
 
             bu = new BackupAzureTables(BadConnectionSpec);
             Assert.Throws<ConnectionException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, WorkingDirectory, false, false, 5, 5));
+            Assert.Throws<ConnectionException>(() => bu.BackupTableToBlobDirect(DefaultTableName, DefaultBlobRoot, false, 5, 5));
         }
 
         [Fact]
@@ -107,6 +109,9 @@ namespace AzureTableUtilitiesXUnitTest
 
             bu = new BackupAzureTables(AzureStorageConfigConnection, ConnectionSpecNoServer);
             Assert.Throws<BackupFailedException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, WorkingDirectory, false, false, 30, 5));
+
+            bu = new BackupAzureTables(AzureStorageConfigConnection, ConnectionSpecNoServer);
+            Assert.Throws<BackupFailedException>(() => bu.BackupTableToBlobDirect(DefaultTableName, DefaultBlobRoot, false, 30, 5));
         }
 
 
@@ -205,6 +210,7 @@ namespace AzureTableUtilitiesXUnitTest
 
             rs = new RestoreAzureTables(AzureStorageConfigConnection, BadConnectionSpec);
             Assert.Throws<ConnectionException>(() => rs.RestoreTableFromBlob(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, WorkingDirectory, FileNameThatExists, 5));
+            Assert.Throws<ConnectionException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, FileNameThatExists, 5));
         }
 
 
@@ -216,7 +222,8 @@ namespace AzureTableUtilitiesXUnitTest
 
             rs = new RestoreAzureTables(AzureStorageConfigConnection, ConnectionSpecNoServer);
             Assert.Throws<RestoreFailedException>(() => rs.RestoreTableFromBlob(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, @"d:\temp\TestRestore\", "UserProfile_Backup_20200505173139.txt", 5));
-       }
+            Assert.Throws<RestoreFailedException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, "UserProfile_Backup_20200505173139.txt", 5));
+        }
 
 
         [Fact]
@@ -243,12 +250,25 @@ namespace AzureTableUtilitiesXUnitTest
             var exceptionBlobFileNameEmpty = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlob(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, "baddir", ""));
             Assert.Contains("Invalid BlobFileName", exceptionBlobFileNameEmpty.Message);
 
-
             var exceptionBlobRootNull = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlob(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, null, "baddir", "blobfile"));
             Assert.Contains("Invalid BlobRoot", exceptionBlobRootNull.Message);
 
             var exceptionBlobRootEmpty = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlob(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, "", "baddir", "blobfile"));
             Assert.Contains("Invalid BlobRoot", exceptionBlobRootEmpty.Message);
+
+
+            //Blob Direct tests
+            var exceptionBlobDirectFileNameNull = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, null));
+            Assert.Contains("Invalid BlobFileName", exceptionBlobDirectFileNameNull.Message);
+
+            var exceptionBlobDirectFileNameEmpty = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, ""));
+            Assert.Contains("Invalid BlobFileName", exceptionBlobDirectFileNameEmpty.Message);
+
+            var exceptionBlobDirectRootNull = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, null, "blobfile"));
+            Assert.Contains("Invalid BlobRoot", exceptionBlobDirectRootNull.Message);
+
+            var exceptionBlobDirectRootEmpty = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, "", "blobfile"));
+            Assert.Contains("Invalid BlobRoot", exceptionBlobDirectRootEmpty.Message);
         }
 
 
@@ -331,6 +351,14 @@ namespace AzureTableUtilitiesXUnitTest
             var exceptionToBlobOutDirMissing = Assert.Throws<ParameterSpecException>(() => instanceBackup.BackupTableToBlob("XX", "XX", ""));
             Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionToBlobOutDirMissing));
             Assert.Contains("OutFileDirectory is missing.", exceptionToBlobOutDirMissing.ToString());
+
+            var exceptionToBlobDirectTableMissing = Assert.Throws<ParameterSpecException>(() => instanceBackup.BackupTableToBlobDirect("", "badroot"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionToBlobDirectTableMissing));
+            Assert.Contains("TableName is missing.", exceptionToBlobDirectTableMissing.ToString());
+
+            var exceptionToBlobDirectBlobRootMissing = Assert.Throws<ParameterSpecException>(() => instanceBackup.BackupTableToBlobDirect("XX", ""));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionToBlobDirectBlobRootMissing));
+            Assert.Contains("BlobRoot is missing.", exceptionToBlobDirectBlobRootMissing.ToString());
         }
 
 
@@ -371,6 +399,23 @@ namespace AzureTableUtilitiesXUnitTest
             var exceptionFromBlobWorkingDirectoryMissing = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromBlob("XX", "XX", "BlobRoot", "", "blobfilename"));
             Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromBlobWorkingDirectoryMissing));
             Assert.Contains("WorkingDirectory is missing.", exceptionFromBlobWorkingDirectoryMissing.ToString());
+
+            //Blob Direct
+            var exceptionFromBlobDirectDestinationTableName = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromBlobDirect("", "xx", "BlobRoot", "blobfilename"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromBlobDirectDestinationTableName));
+            Assert.Contains("DestinationTableName is missing.", exceptionFromBlobDirectDestinationTableName.ToString());
+
+            var exceptionFromBlobDirectOriginalTableNameMissing = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromBlobDirect("XX", "", "BlobRoot", "blobfilename"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromBlobDirectOriginalTableNameMissing));
+            Assert.Contains("OriginalTableName is missing.", exceptionFromBlobDirectOriginalTableNameMissing.ToString());
+
+            var exceptionFromBlobDirectBlobRootMissing = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromBlobDirect("XX", "XX", "", "blobfilename"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromBlobDirectBlobRootMissing));
+            Assert.Contains("Invalid BlobRoot '' specified.", exceptionFromBlobDirectBlobRootMissing.ToString());
+
+            var exceptionFromBlobDirectBlobRootMissing2 = Assert.Throws<ParameterSpecException>(() => instanceRestore.RestoreTableFromBlobDirect("XX", "XX", null, "blobfilename"));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromBlobDirectBlobRootMissing2));
+            Assert.Contains("Invalid BlobRoot '' specified.", exceptionFromBlobDirectBlobRootMissing2.ToString());
         }
     }
 }

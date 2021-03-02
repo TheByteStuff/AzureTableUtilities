@@ -356,5 +356,167 @@ namespace TheByteStuff.AzureTableUtilities
             }
             return OutFileCreated;
         }
+
+
+        /// <summary>
+        /// Backup table directly to Blob.
+        /// 
+        /// </summary>
+        /// <param name="TableName">Name of Azure Table to backup.</param>
+        /// <param name="BlobRoot">Name to use as blob root folder.</param>
+        /// <param name="Compress">True to compress the file.</param>
+        /// <param name="RetentionDays">Process will age files in blob created more than x days ago.</param>
+        /// <param name="TimeoutSeconds">Set timeout for table client.</param>
+        /// <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
+        /// <returns>A string containing the name of the file created.</returns>
+        public string BackupTableToBlobDirect(string TableName, string BlobRoot, bool Compress = false, int RetentionDays = 30, int TimeoutSeconds = 30, List<Filter> filters = default(List<Filter>))
+        {
+            string OutFileName = "";
+            int RecordCount = 0;
+            int BackupsAged = 0;
+
+            if (String.IsNullOrWhiteSpace(TableName))
+            {
+                throw new ParameterSpecException("TableName is missing.");
+            }
+
+            if (String.IsNullOrWhiteSpace(BlobRoot))
+            {
+                throw new ParameterSpecException("BlobRoot is missing.");
+            }
+
+            try
+            {
+                if (Compress)
+                {
+                    OutFileName = String.Format(TableName + "_Backup_" + System.DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt.7z");                    
+                }
+                else
+                {
+                    OutFileName = String.Format(TableName + "_Backup_" + System.DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt");
+                }
+
+                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+
+                if (!AZStorage.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureBlobConnectionSpec).Password, out AZStorage.CloudStorageAccount StorageAccountAZ))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+
+                AZBlob.CloudBlobClient ClientBlob = AZBlob.BlobAccountExtensions.CreateCloudBlobClient(StorageAccountAZ);
+                var container = ClientBlob.GetContainerReference(BlobRoot);
+                container.CreateIfNotExists();
+                AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobRoot.ToLower() + "-table-" + TableName.ToLower());
+
+                AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(OutFileName);
+
+                // start upload from stream, iterate through table, possible inline compress
+                try
+                {
+                    CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
+                    CosmosTable.CloudTable table = client.GetTableReference(TableName);
+                    table.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
+
+                    CosmosTable.TableContinuationToken token = null;
+                    var entities = new List<CosmosTable.DynamicTableEntity>();
+                    var entitiesSerialized = new List<string>();
+                    DynamicTableEntityJsonSerializer serializer = new DynamicTableEntityJsonSerializer();
+
+                    TableSpec TableSpecStart = new TableSpec(TableName);
+                    var NewLineAsBytes = Encoding.UTF8.GetBytes("\n");
+
+                    var tempTableSpecStart = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(TableSpecStart));
+                    AZBlob.CloudBlobStream bs2 = BlobBlock.OpenWrite();
+                    Stream bs = BlobBlock.OpenWrite();
+
+                    if (Compress)
+                    {
+                        bs = new GZipStream(bs2, CompressionMode.Compress);
+                    }
+                    else
+                    {
+                        bs = bs2;
+                    }
+
+                    bs.Write(tempTableSpecStart, 0, tempTableSpecStart.Length);
+                    bs.Flush();
+                    bs.Write(NewLineAsBytes, 0, NewLineAsBytes.Length);
+                    bs.Flush();
+
+                    CosmosTable.TableQuery<CosmosTable.DynamicTableEntity> tq;
+                    if (default(List<Filter>) == filters)
+                    {
+                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>();
+                    }
+                    else
+                    {
+                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>().Where(Filter.BuildFilterSpec(filters));
+                    }
+                    do
+                    {
+                        var queryResult = table.ExecuteQuerySegmented(tq, token);
+                        foreach (CosmosTable.DynamicTableEntity dte in queryResult.Results)
+                        {
+                            var tempDTE = Encoding.UTF8.GetBytes(serializer.Serialize(dte));
+                            bs.Write(tempDTE, 0, tempDTE.Length);
+                            bs.Flush();
+                            bs.Write(NewLineAsBytes, 0, NewLineAsBytes.Length);
+                            bs.Flush();
+                            RecordCount++;
+                        }
+                        token = queryResult.ContinuationToken;
+                    } while (token != null);
+
+                    TableSpec TableSpecEnd = new TableSpec(TableName, RecordCount);
+                    var tempTableSpecEnd = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(TableSpecEnd));
+                    bs.Write(tempTableSpecEnd, 0, tempTableSpecEnd.Length);
+                    bs.Flush();
+                    bs.Write(NewLineAsBytes, 0, NewLineAsBytes.Length);
+                    bs.Flush();
+                    bs.Close();                    
+                }
+                catch (Exception ex)
+                {
+                    throw new BackupFailedException(String.Format("Table '{0}' backup failed.", TableName), ex);
+                }
+
+                DateTimeOffset OffsetTimeNow = System.DateTimeOffset.Now;
+                DateTimeOffset OffsetTimeRetain = System.DateTimeOffset.Now.AddDays(-1 * RetentionDays);
+
+                //Cleanup old versions
+                var BlobList = directory.ListBlobs().OfType<AZBlob.CloudBlockBlob>().ToList(); ;
+                foreach (var blob in BlobList)
+                {
+                    if (blob.Properties.Created < OffsetTimeRetain)
+                    {
+                        try
+                        {
+                            blob.Delete();
+                            BackupsAged++;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new AgingException(String.Format("Error aging file '{0}'.", blob.Name), ex);
+                        }
+                    }
+                }
+
+                return String.Format("Table '{0}' backed up as '{2}' under blob '{3}\\{4}'; {1} files aged.", TableName, BackupsAged, OutFileName, BlobRoot, directory.ToString());
+            }
+            catch (ConnectionException cex)
+            {
+                throw cex;
+            }
+            catch (Exception ex)
+            {
+                throw new BackupFailedException(String.Format("Table '{0}' backup failed.", TableName), ex);
+            }
+            finally
+            {
+            }
+        } // BackupTableToBlobDirect
     }
 }

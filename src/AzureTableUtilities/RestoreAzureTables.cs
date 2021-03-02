@@ -91,6 +91,7 @@ namespace TheByteStuff.AzureTableUtilities
 
         /// <summary>
         /// Restore file created in blob storage by BackupAzureTables to the destination table name specified.
+        /// Blob file will be downloaded to local storage before reading.  If compressed, it will be decompressed on local storage before reading.
         /// </summary>
         /// <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
         /// <param name="OriginalTableName">Name of the Azure Table originally backed (required for determining blob directory to use)</param>
@@ -401,6 +402,223 @@ namespace TheByteStuff.AzureTableUtilities
             finally
             {
             }
+        }
+
+
+        /// <summary>
+        /// Restore file from blob storage by BackupAzureTables to the destination table name specified.  
+        /// File will be read directly from blob storage.  If the file is compressed, it will be decompressed to blob storage and then read.
+        /// </summary>
+        /// <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
+        /// <param name="OriginalTableName">Name of the Azure Table originally backed (required for determining blob directory to use)</param>
+        /// <param name="BlobRoot">Name to use as blob root folder.</param>
+        /// <param name="BlobFileName">Name of the blob file to restore.</param>
+        /// <param name="TimeoutSeconds">Set timeout for table client.</param>
+        /// <returns>A string indicating the table restored and record count.</returns>
+        public string RestoreTableFromBlobDirect(string DestinationTableName, string OriginalTableName, string BlobRoot, string BlobFileName, int TimeoutSeconds = 30)
+        {
+            if (String.IsNullOrWhiteSpace(DestinationTableName))
+            {
+                throw new ParameterSpecException("DestinationTableName is missing.");
+            }
+
+            if (String.IsNullOrWhiteSpace(OriginalTableName))
+            {
+                throw new ParameterSpecException("OriginalTableName is missing.");
+            }
+
+            if (String.IsNullOrWhiteSpace(BlobFileName))
+            {
+                throw new ParameterSpecException(String.Format("Invalid BlobFileName '{0}' specified.", BlobFileName));
+            }
+            bool Decompress = BlobFileName.EndsWith(".7z");
+            string TempFileName = String.Format("{0}.temp", BlobFileName);
+
+            if (String.IsNullOrWhiteSpace(BlobRoot))
+            {
+                throw new ParameterSpecException(String.Format("Invalid BlobRoot '{0}' specified.", BlobRoot));
+            }
+
+            try
+            {
+                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+
+                if (!AZStorage.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureBlobConnectionSpec).Password, out AZStorage.CloudStorageAccount StorageAccountAZ))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+
+                AZBlob.CloudBlobClient ClientBlob = AZBlob.BlobAccountExtensions.CreateCloudBlobClient(StorageAccountAZ);
+                var container = ClientBlob.GetContainerReference(BlobRoot);
+                container.CreateIfNotExists();
+                AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobRoot.ToLower() + "-table-" + OriginalTableName.ToLower());
+
+                // If file is compressed, Decompress to a temp file in the blob
+                if (Decompress)
+                {
+                    AZBlob.CloudBlockBlob BlobBlockTemp = directory.GetBlockBlobReference(TempFileName);
+                    AZBlob.CloudBlockBlob BlobBlockRead = directory.GetBlockBlobReference(BlobFileName);
+
+                    using (AZBlob.CloudBlobStream decompressedStream = BlobBlockTemp.OpenWrite())
+                    {
+                        using (Stream readstream = BlobBlockRead.OpenRead())
+                        {
+                            using (var zip = new GZipStream(readstream, CompressionMode.Decompress, true))
+                            {
+                                zip.CopyTo(decompressedStream);
+                            }
+                        }
+                    }
+                    BlobFileName = TempFileName;
+                }
+
+                AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(BlobFileName);
+
+                CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
+                CosmosTable.CloudTable TableDest = client.GetTableReference(DestinationTableName);
+                TableDest.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
+                TableDest.CreateIfNotExists();
+
+                using (Stream BlobStream = BlobBlock.OpenRead())
+                {
+                    using (StreamReader InputFileStream = new StreamReader(BlobStream))
+                    {
+                        string result = RestoreFromStream(InputFileStream, TableDest, DestinationTableName);
+                        if (Decompress)
+                        {
+                            AZBlob.CloudBlockBlob BlobBlockTemp = directory.GetBlockBlobReference(TempFileName);
+                            BlobBlockTemp.DeleteIfExists();
+                        }
+                        return result;
+                    }
+                }
+            }
+            catch (ConnectionException cex)
+            {
+                throw cex;
+            }
+            catch (RestoreFailedException rex)
+            {
+                throw rex;
+            }
+            catch (Exception ex)
+            {
+                throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+            }
+            finally
+            {
+            }
+        } // RestoreTableFromBlobDirect
+
+
+        private string RestoreFromStream(StreamReader InputFileStream, CosmosTable.CloudTable TableDest, string DestinationTableName)
+        {
+            bool BatchWritten = true;
+            string PartitionKey = String.Empty;
+            CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
+            int BatchSize = 100;
+            int BatchCount = 0;
+            long TotalRecordCount = 0;
+            TableSpec footer = null;
+            DynamicTableEntityJsonSerializer serializer = new DynamicTableEntityJsonSerializer();
+
+            try
+            {
+                string InFileLine = InputFileStream.ReadLine();
+                while (InFileLine != null)
+                {
+                    if (InFileLine.Contains("ProcessingMetaData") && InFileLine.Contains("Header"))
+                    {
+                        System.Console.WriteLine(String.Format("Header {0}", InFileLine));
+                    }
+                    else if (InFileLine.Contains("ProcessingMetaData") && InFileLine.Contains("Footer"))
+                    {
+                        footer = JsonConvert.DeserializeObject<TableSpec>(InFileLine);
+                        System.Console.WriteLine(String.Format("Footer {0}", InFileLine));
+                    }
+                    else
+                    {
+                        CosmosTable.DynamicTableEntity dte2 = serializer.Deserialize(InFileLine);
+                        if (String.Empty.Equals(PartitionKey)) { PartitionKey = dte2.PartitionKey; }
+                        if (dte2.PartitionKey == PartitionKey)
+                        {
+                            Batch.InsertOrReplace(dte2);
+                            BatchCount++;
+                            TotalRecordCount++;
+                            BatchWritten = false;
+                        }
+                        else
+                        {
+                            try
+                            {
+                                TableDest.ExecuteBatch(Batch);
+                                Batch = new CosmosTable.TableBatchOperation();
+                                PartitionKey = dte2.PartitionKey;
+                                Batch.InsertOrReplace(dte2);
+                                BatchCount = 1;
+                                TotalRecordCount++;
+                                BatchWritten = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                            }
+                        }
+                        if (BatchCount >= BatchSize)
+                        {
+                            try
+                            {
+                                TableDest.ExecuteBatch(Batch);
+                                PartitionKey = String.Empty;
+                                Batch = new CosmosTable.TableBatchOperation();
+                                BatchWritten = true;
+                                BatchCount = 0;
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                            }
+                        }
+                    }
+                    InFileLine = InputFileStream.ReadLine();
+                }  // while (InFileLine != null)
+
+                //final batch
+                if (!BatchWritten)
+                {
+                    try
+                    {
+                        TableDest.ExecuteBatch(Batch);
+                        PartitionKey = String.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                    }
+                }
+
+                if (null == footer)
+                {
+                    throw new RestoreFailedException(String.Format("Table '{0}' restore failed, no footer record found.", DestinationTableName));
+                }
+                else if (TotalRecordCount == footer.RecordCount)
+                {
+                    //OK, do nothing
+                }
+                else
+                {
+                    throw new RestoreFailedException(String.Format("Table '{0}' restore failed, records read {1} does not match expected count {2} in footer record.", DestinationTableName, TotalRecordCount, footer.RecordCount));
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+            }
+
+            return String.Format("Restore to table '{0}' Successful; {1} entries.", DestinationTableName, TotalRecordCount);
         }
     }
 }

@@ -61,6 +61,19 @@
             <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
             <returns>A string containing the name of the file created.</returns>
         </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.BackupTableToBlobDirect(System.String,System.String,System.Boolean,System.Int32,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            Backup table directly to Blob.
+            
+            </summary>
+            <param name="TableName">Name of Azure Table to backup.</param>
+            <param name="BlobRoot">Name to use as blob root folder.</param>
+            <param name="Compress">True to compress the file.</param>
+            <param name="RetentionDays">Process will age files in blob created more than x days ago.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
+            <returns>A string containing the name of the file created.</returns>
+        </member>
         <member name="T:TheByteStuff.AzureTableUtilities.CopyAzureTables">
             <summary>
             Azure Tables copy functions.
@@ -476,6 +489,7 @@
         <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.RestoreTableFromBlob(System.String,System.String,System.String,System.String,System.String,System.Int32)">
             <summary>
             Restore file created in blob storage by BackupAzureTables to the destination table name specified.
+            Blob file will be downloaded to local storage before reading.  If compressed, it will be decompressed on local storage before reading.
             </summary>
             <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
             <param name="OriginalTableName">Name of the Azure Table originally backed (required for determining blob directory to use)</param>
@@ -491,6 +505,18 @@
             </summary>
             <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
             <param name="InFilePathName">Complete file name and path containing the data to be restored.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <returns>A string indicating the table restored and record count.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.RestoreAzureTables.RestoreTableFromBlobDirect(System.String,System.String,System.String,System.String,System.Int32)">
+            <summary>
+            Restore file from blob storage by BackupAzureTables to the destination table name specified.  
+            File will be read directly from blob storage.  If the file is compressed, it will be decompressed to blob storage and then read.
+            </summary>
+            <param name="DestinationTableName">Name of the Azure Table to restore to -  may be different than name backed up originally.</param>
+            <param name="OriginalTableName">Name of the Azure Table originally backed (required for determining blob directory to use)</param>
+            <param name="BlobRoot">Name to use as blob root folder.</param>
+            <param name="BlobFileName">Name of the blob file to restore.</param>
             <param name="TimeoutSeconds">Set timeout for table client.</param>
             <returns>A string indicating the table restored and record count.</returns>
         </member>

@@ -23,6 +23,7 @@ namespace AzureTableUtilitiesXUnitTest
         private string AzureBlobStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;";
 
         private string BlobRoot = "test";
+        private string BlobDirectRoot = "testdirect";
         private string TableNameFrom = "TestSource";
         private string TableNameTo = "TestCopy";
         private string TableNameTo2 = "TestCopy2";
@@ -137,7 +138,32 @@ namespace AzureTableUtilitiesXUnitTest
             //int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
 
             //Need to restore to confirm
-            string restoreResult = instanceRestore.RestoreTableFromBlob(TableNameRestoreTo, TableNameFrom, BlobRoot, WorkingDirectory, ExtractFileName(backupToBlob), 30);
+            string restoreResult = instanceRestore.RestoreTableFromBlob(TableNameRestoreTo, TableNameFrom, BlobRoot, WorkingDirectory,ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+
+        [Fact]
+        public void TestBackupToBlobDirect_LargeFile()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs_LargeFile);
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+            string backupToBlob = instanceBackup.BackupTableToBlobDirect(TableNameFrom, BlobRoot, true, 10, 10);
+            int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlobDirect(TableNameRestoreTo, TableNameFrom, BlobRoot, ExtractFileName(backupToBlob), 30);
 
             string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
             int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
@@ -173,5 +199,120 @@ namespace AzureTableUtilitiesXUnitTest
             Assert.Equal(InitialRowCount, VerifyRowCount);
         }
 
+
+        [Fact]
+        public void TestBackupToBlobDirectFilters()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
+
+            List<Filter> Filters2 = new List<Filter>();
+            Filters2.Add(new Filter("RowKey", "=", "User1"));
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30, Filters2);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+
+            string backupToBlob = instanceBackup.BackupTableToBlobDirect(TableNameFrom, BlobRoot, true, 10, 10, Filters2);
+            int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlobDirect(TableNameRestoreTo, TableNameFrom, BlobRoot, ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+
+        [Fact]
+        public void TestBackupToBlobDirect()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
+
+            List<Filter> Filters = new List<Filter>();
+            Filters.Add(new Filter("RowKey", "=", "User1"));
+            Filters.Add(new Filter("RowKey", "=", "User2", "OR"));
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+            string backupToBlob = instanceBackup.BackupTableToBlobDirect(TableNameFrom, BlobDirectRoot, false, 10, 10);
+            int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlobDirect(TableNameRestoreTo, TableNameFrom, BlobDirectRoot, ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+        //For testing compression efficiency
+        [Fact]
+        public void TestBackupToBlobDirectTest()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
+
+            List<Filter> Filters = new List<Filter>();
+            Filters.Add(new Filter("RowKey", "=", "User1"));
+            Filters.Add(new Filter("RowKey", "=", "User2", "OR"));
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+            string backupToBlob = instanceBackup.BackupTableToBlobDirect(TableNameFrom, BlobDirectRoot, true, 10, 10);
+            int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlobDirect(TableNameRestoreTo, TableNameFrom, BlobDirectRoot, ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+
+        [Fact]
+        public void TestBackupToBlobDirectWithCompress()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
+
+            List<Filter> Filters = new List<Filter>();
+            Filters.Add(new Filter("RowKey", "=", "User1"));
+            Filters.Add(new Filter("RowKey", "=", "User2", "OR"));
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+            string backupToBlob = instanceBackup.BackupTableToBlobDirect(TableNameFrom, BlobDirectRoot, true, 10, 10);
+            int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlobDirect(TableNameRestoreTo, TableNameFrom, BlobDirectRoot, ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
     }
 }
