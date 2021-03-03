@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <DebugType>Full</DebugType>
     <RootNamespace>TheByteStuff.AzureTableUtilities</RootNamespace>
-    <Version>4.4.0</Version>
+    <Version>5.4.0-pre</Version>
     <Company>The Byte Stuff, LLC</Company>
     <Authors>The Byte Stuff, LLC</Authors>
     <Description>Backup, Copy, Delete and Restore options for use with Azure Tables.  An alternative to tools such as AZCopy.
@@ -32,6 +32,8 @@ Code for a command line executable along with sample Docker build is available o
 
 Suggestions or donations are both appreciated and welcome can be made by using the "Contact" tab at https://www.thebytestuff.com/Contact?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities
 
+v5.4.0-pre - beta with 4.4.0 as a code base and including Cosmos Table 2.0.0 Preview
+v5.3.0-pre - beta with 4.3.0 as a code base and including Cosmos Table 2.0.0 Preview
 v5.0.0-pre - beta including Cosmos Table 2.0.0 Preview
 v4.4.0 - Added additional methods for backup/restore to use Blob storage directly and eliminate the need for a local working directory.
 v4.3.0 - Added additional parameter validation, code cleanup for initial github publish
@@ -53,7 +55,7 @@ v1.0 - Initial release.</Description>
     <PackageLicenseUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/LICENSE</PackageLicenseUrl>
     <PackageIconUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/src/AzureTableUtilities/CardFront_Clip.png</PackageIconUrl>
     <PackageReleaseNotes>Added "BlobDirect" options for Backup and Restore to allow table to be directly backed up to BlobStorage as well as restored from BlobStorage.  If compression is turned on, file will be compressed in place on backup; however, upon restore it will be decompressed in BlobStorage before being restored.</PackageReleaseNotes>
-    <AssemblyVersion>4.4.0.0</AssemblyVersion>
+    <AssemblyVersion>5.4.0.0</AssemblyVersion>
     <RepositoryUrl>https://github.com/TheByteStuff/AzureTableUtilities</RepositoryUrl>
     <PackageTags>AzureTables AZCopy Backup Copy Delete Restore</PackageTags>
     <RepositoryType>git</RepositoryType>
@@ -67,7 +69,7 @@ v1.0 - Initial release.</Description>
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" Version="12.4.4" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.11.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.7" />
+    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="2.0.0-preview" />
     <PackageReference Include="Microsoft.Azure.Storage.Blob" Version="11.1.7" />
     <PackageReference Include="Microsoft.Azure.Storage.File" Version="11.1.7" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
