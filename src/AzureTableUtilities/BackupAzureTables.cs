@@ -139,6 +139,7 @@ namespace TheByteStuff.AzureTableUtilities
                 AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobRoot.ToLower() + "-table-" + TableName.ToLower());
 
                 AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(OutFileName);
+                BlobBlock.StreamWriteSizeInBytes = 1024 * 1024 * 32; //Set stream write size to 32MB
                 BlobBlock.UploadFromFile(OutFileNamePath);                                
 
                 DateTimeOffset OffsetTimeNow = System.DateTimeOffset.Now;
@@ -412,6 +413,7 @@ namespace TheByteStuff.AzureTableUtilities
                 AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobRoot.ToLower() + "-table-" + TableName.ToLower());
 
                 AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(OutFileName);
+                BlobBlock.StreamWriteSizeInBytes = 1024 * 1024 * 32; //Set stream write size to 32MB
 
                 // start upload from stream, iterate through table, possible inline compress
                 try
