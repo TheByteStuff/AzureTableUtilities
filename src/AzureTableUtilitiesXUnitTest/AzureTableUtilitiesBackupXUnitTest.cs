@@ -314,5 +314,25 @@ namespace AzureTableUtilitiesXUnitTest
             int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
             Assert.Equal(InitialRowCount, VerifyRowCount);
         }
+
+
+        [Fact]
+        public void TestBackupAllTables()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            string restoreResult1 = instanceRestore.RestoreTableFromFile(TableNameTo, FileNamePathThatExists_UserProfile);
+            int RestoreCount1 = ExtractNextInt(restoreResult1, "Successful;", "entries");
+
+            string restoreResult2 = instanceRestore.RestoreTableFromFile(TableNameTo2, FileNamePathThatExists_SystemLogs);
+            int RestoreCount2 = ExtractNextInt(restoreResult2, "Successful;", "entries");
+
+            string Expected1 = String.Format("Table '{0}' backed up as", TableNameTo);
+            string Expected2 = String.Format("Table '{0}' backed up as", TableNameTo2);
+            string backupallresult = instanceBackup.BackupAllTablesToBlob(BlobDirectRoot, true, 10, 10);
+            Assert.Contains(Expected1, backupallresult.ToString());
+            Assert.Contains(Expected2, backupallresult.ToString());
+        }
     }
 }

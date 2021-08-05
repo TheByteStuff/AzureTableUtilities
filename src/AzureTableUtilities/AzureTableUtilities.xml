@@ -64,7 +64,6 @@
         <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.BackupTableToBlobDirect(System.String,System.String,System.Boolean,System.Int32,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
             <summary>
             Backup table directly to Blob.
-            
             </summary>
             <param name="TableName">Name of Azure Table to backup.</param>
             <param name="BlobRoot">Name to use as blob root folder.</param>
@@ -73,6 +72,17 @@
             <param name="TimeoutSeconds">Set timeout for table client.</param>
             <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
             <returns>A string containing the name of the file created.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.BackupAzureTables.BackupAllTablesToBlob(System.String,System.Boolean,System.Int32,System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            Backup all tables direct to Blob storage.
+            </summary>
+            <param name="BlobRoot">Name to use as blob root folder.</param>
+            <param name="Compress">True to compress the file.</param>
+            <param name="RetentionDays">Process will age files in blob created more than x days ago.</param>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
+            <returns>A string containing the name of the file(s) created as well as any backups aged.</returns>
         </member>
         <member name="T:TheByteStuff.AzureTableUtilities.CopyAzureTables">
             <summary>
@@ -112,8 +122,24 @@
             <param name="SourceTableName">Name of table to copy from.</param>
             <param name="DestinationTableName">Name of table to copy to.</param>
             <param name="TimeoutSeconds">Set timeout for table client.</param>
-            <param name="filters">A list of Filter objects to be applied to table values extracted.</param> 
+            <param name="filters">A list of Filter objects to be applied to table values copied.</param> 
             <returns>A string indicating the result of the operation.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.CopyAllTables(System.Int32,System.Collections.Generic.List{TheByteStuff.AzureTableUtilities.Filter})">
+            <summary>
+            This method will copy all tables from entries from AzureSourceTableConnection to AzureDestinationTableConnection.  The destination table is NOT deleted first.
+            </summary>
+            <param name="TimeoutSeconds">Set timeout for table client.</param>
+            <param name="filters">A list of Filter objects to be applied to table values copied.</param> 
+            <returns>A string indicating the result of the operation.</returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.CopyAzureTables.IsEqualTo(System.Security.SecureString,System.Security.SecureString)">
+            <summary>
+            Test if two SecureString values are equal.
+            </summary>
+            <param name="ss1"></param>
+            <param name="ss2"></param>
+            <returns>bool</returns>
         </member>
         <member name="T:TheByteStuff.AzureTableUtilities.DeleteAzureTables">
             <summary>
@@ -452,7 +478,14 @@
             <summary>
             Test if SecureString is null or empty.
             </summary>
-            <param name="value"></param>
+            <param name="value">Value to test</param>
+            <returns></returns>
+        </member>
+        <member name="M:TheByteStuff.AzureTableUtilities.Helper.GetTableNames(System.Security.SecureString)">
+            <summary>
+            Return a list of table names for the given azure connection.
+            </summary>
+            <param name="AzureTableConnection"></param>
             <returns></returns>
         </member>
         <member name="T:TheByteStuff.AzureTableUtilities.RestoreAzureTables">
