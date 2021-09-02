@@ -119,6 +119,11 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ParameterSpecException("WorkingDirectory is missing.");
             }
 
+            if (!Directory.Exists(WorkingDirectory))
+            {
+                throw new ParameterSpecException("WorkingDirectory does not exist.");
+            }
+
             if (String.IsNullOrWhiteSpace(BlobFileName))
             {
                 throw new ParameterSpecException(String.Format("Invalid BlobFileName '{0}' specified.", BlobFileName));

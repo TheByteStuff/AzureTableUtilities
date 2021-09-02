@@ -123,6 +123,11 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ParameterSpecException("OutFileDirectory is missing.");
             }
 
+            if (!Directory.Exists(OutFileDirectory))
+            {
+                throw new ParameterSpecException("OutFileDirectory does not exist.");
+            }
+
             try
             {
                 OutFileName = this.BackupTableToFile(TableName, OutFileDirectory, Compress, Validate, TimeoutSeconds, filters); 
@@ -210,6 +215,11 @@ namespace TheByteStuff.AzureTableUtilities
             if (String.IsNullOrWhiteSpace(OutFileDirectory))
             {
                 throw new ParameterSpecException("OutFileDirectory is missing.");
+            }
+
+            if (!Directory.Exists(OutFileDirectory))
+            {
+                throw new ParameterSpecException("OutFileDirectory does not exist.");
             }
 
             string OutFileName = String.Format(TableName + "_Backup_" + System.DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt");
