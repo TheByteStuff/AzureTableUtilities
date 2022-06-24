@@ -21,12 +21,18 @@ namespace AzureTableUtilitiesXUnitTest
         private string WorkingDirectory;
         private string FileNameThatExists;
         private string FileNamePathThatExists;
+        private string DirectoryDoesNotExist = @"c:\baddir\";
 
         private string DefaultBlobRoot = "backups";
-        private string DefaultTableName = "TestSource";      
+        private string DefaultTableName = "TestSource";
 
-        private string AzureStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;";
+        //*
+        private string AzureStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;";
         private string AzureBlobStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;";
+        /*/
+        private string AzureStorageConfigConnection = "<<azure storage connection spec>>";
+        private string AzureBlobStorageConfigConnection = "<<azure blob connection spec>>";
+        //*/
 
         private SecureString AzureStorageConfigConnectionSecureStringNull = null;
 
@@ -59,11 +65,23 @@ namespace AzureTableUtilitiesXUnitTest
         [Fact]
         public void TestBackupBadDir()
         {
+            //WorkingDirectory is not formatted properly
             BackupAzureTables bu = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
             Assert.Throws<ParameterSpecException>(() => bu.BackupTableToFile("TestTable", "baddir", false));
 
             var exception = Assert.Throws<BackupFailedException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, "baddir", false, false, 30));
             Assert.Contains("ParameterSpecException", exception.InnerException.ToString());
+        }
+
+        [Fact]
+        public void TestBackupOutfileDirectoryDoesNotExist()
+        {
+            BackupAzureTables bu = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            var exception1 = Assert.Throws<ParameterSpecException>(() => bu.BackupTableToFile("TestTable", DirectoryDoesNotExist, false));
+            Assert.Contains("OutFileDirectory does not exist", exception1.ToString());
+
+            var exception2 = Assert.Throws<ParameterSpecException>(() => bu.BackupTableToBlob(DefaultTableName, DefaultBlobRoot, DirectoryDoesNotExist, false, false, 30));
+            Assert.Contains("OutFileDirectory does not exist", exception2.ToString());
         }
 
         [Fact]
@@ -269,6 +287,15 @@ namespace AzureTableUtilitiesXUnitTest
 
             var exceptionBlobDirectRootEmpty = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlobDirect(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, "", "blobfile"));
             Assert.Contains("Invalid BlobRoot", exceptionBlobDirectRootEmpty.Message);
+        }
+
+        [Fact]
+        public void TestRestoreBlobWorkingDirectoryDoesNotExistExceptions()
+        {
+            RestoreAzureTables rs = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            var exceptionBlobFileNameNull = Assert.Throws<ParameterSpecException>(() => rs.RestoreTableFromBlob(DefaultTableNameRestore, DefaultTableNameRestoreOriginal, DefaultBlobRoot, DirectoryDoesNotExist, "blobfile"));
+            Assert.Contains("WorkingDirectory does not exist", exceptionBlobFileNameNull.Message);
         }
 
 

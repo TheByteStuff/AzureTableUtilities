@@ -19,6 +19,11 @@ namespace AzureTableUtilitiesXUnitTest
     public class AzureTableUtilitiesCopyXUnitTest
     {
         private string AzureStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;";
+        private string AzureStorageConfigConnection2 = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.2:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;";
+
+        //These need to be edited to be two different sources before running CopyAll tests.
+        private string AzureStorageConfigConnection_ALT1 = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;";
+        private string AzureStorageConfigConnection_ALT2 = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.2:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;";
 
         private string TableNameFrom = "TestSource";
         private string TableNameTo = "TestCopy";
@@ -134,6 +139,53 @@ namespace AzureTableUtilitiesXUnitTest
             var exceptionToMissing = Assert.Throws<ParameterSpecException>(() => instanceCopy.CopyTableToTable(TableNameTo, ""));
             Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionToMissing));
             Assert.Contains("DestinationTableName is missing.", exceptionToMissing.ToString());
+        }
+
+
+        [Fact]
+        public void TestCopyAllParameterExceptions()
+        {
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+
+            var exceptionFromMissing = Assert.Throws<ParameterSpecException>(() => instanceCopy.CopyAllTables());
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionFromMissing));
+            Assert.Contains("Source and Destination Connection specs can not match for CopyAll.", exceptionFromMissing.ToString());
+
+            instanceCopy = new CopyAzureTables(AzureStorageConfigConnection, AzureStorageConfigConnection2);
+            List<Filter> Filters = new List<Filter>();
+            Filters.Add(new Filter("RowKey", "=", "User1", "XXXX"));
+            var exceptionToMissing = Assert.Throws<ParameterSpecException>(() => instanceCopy.CopyAllTables(30, Filters));
+            Assert.True(typeof(ParameterSpecException).IsInstanceOfType(exceptionToMissing));
+            Assert.Contains("One or more of the supplied filter criteria is invalid.", exceptionToMissing.ToString());
+        }
+
+
+        [Fact]
+        public void TestCopyAll()
+        {
+            DeleteAzureTables instanceDeleteSetup = new DeleteAzureTables(AzureStorageConfigConnection_ALT1);
+            RestoreAzureTables instanceRestoreSetup = new RestoreAzureTables(AzureStorageConfigConnection_ALT1);
+            string deleteInitializeResult = instanceDeleteSetup.DeleteAzureTableRows(TableNameTo);
+            string deleteInitialize2Result = instanceDeleteSetup.DeleteAzureTableRows(TableNameTo2);
+
+            DeleteAzureTables instanceDeleteSetup2 = new DeleteAzureTables(AzureStorageConfigConnection_ALT2);
+            string deleteInitializeResult2 = instanceDeleteSetup2.DeleteAzureTableRows(TableNameTo);
+            string deleteInitialize2Result2 = instanceDeleteSetup2.DeleteAzureTableRows(TableNameTo2);
+
+            string restoreResult1 = instanceRestoreSetup.RestoreTableFromFile(TableNameTo, FileNamePathThatExists_UserProfile);
+            int RestoreCount1 = ExtractNextInt(restoreResult1, "Successful;", "entries");
+
+            string restoreResult2 = instanceRestoreSetup.RestoreTableFromFile(TableNameTo2, FileNamePathThatExists_SystemLogs);
+            int RestoreCount2 = ExtractNextInt(restoreResult2, "Successful;", "entries");
+
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection_ALT1, AzureStorageConfigConnection_ALT2);
+
+            // Check for expected results on the two tables set up. Actual results may have more than these two tables depending on environment.
+            string Expected1 = String.Format("Table '{0}' copied to table '{0}', total records {1}.", TableNameTo, RestoreCount1);
+            string Expected2 = String.Format("Table '{0}' copied to table '{0}', total records {1}.", TableNameTo2, RestoreCount2);
+            string CopyAllResults = instanceCopy.CopyAllTables();
+            Assert.Contains(Expected1, CopyAllResults.ToString());
+            Assert.Contains(Expected2, CopyAllResults.ToString());
         }
     }
 }

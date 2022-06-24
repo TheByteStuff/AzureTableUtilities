@@ -19,8 +19,13 @@ namespace AzureTableUtilitiesXUnitTest
 {
     public class AzureTableUtilitiesBackupXUnitTest
     {
-        private string AzureStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;";
+        //*
+        private string AzureStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;";
         private string AzureBlobStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;";
+        /*/
+        private string AzureStorageConfigConnection = "<<azure storage connection spec>>";
+        private string AzureBlobStorageConfigConnection = "<<azure blob connection spec>>";
+        //*/
 
         private string BlobRoot = "test";
         private string BlobDirectRoot = "testdirect";
@@ -313,6 +318,26 @@ namespace AzureTableUtilitiesXUnitTest
             string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
             int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
             Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+
+        [Fact]
+        public void TestBackupAllTables()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            string restoreResult1 = instanceRestore.RestoreTableFromFile(TableNameTo, FileNamePathThatExists_UserProfile);
+            int RestoreCount1 = ExtractNextInt(restoreResult1, "Successful;", "entries");
+
+            string restoreResult2 = instanceRestore.RestoreTableFromFile(TableNameTo2, FileNamePathThatExists_SystemLogs);
+            int RestoreCount2 = ExtractNextInt(restoreResult2, "Successful;", "entries");
+
+            string Expected1 = String.Format("Table '{0}' backed up as", TableNameTo);
+            string Expected2 = String.Format("Table '{0}' backed up as", TableNameTo2);
+            string backupallresult = instanceBackup.BackupAllTablesToBlob(BlobDirectRoot, true, 10, 10);
+            Assert.Contains(Expected1, backupallresult.ToString());
+            Assert.Contains(Expected2, backupallresult.ToString());
         }
     }
 }

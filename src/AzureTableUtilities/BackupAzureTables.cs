@@ -123,6 +123,11 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ParameterSpecException("OutFileDirectory is missing.");
             }
 
+            if (!Directory.Exists(OutFileDirectory))
+            {
+                throw new ParameterSpecException("OutFileDirectory does not exist.");
+            }
+
             try
             {
                 OutFileName = this.BackupTableToFile(TableName, OutFileDirectory, Compress, Validate, TimeoutSeconds, filters); 
@@ -210,6 +215,11 @@ namespace TheByteStuff.AzureTableUtilities
             if (String.IsNullOrWhiteSpace(OutFileDirectory))
             {
                 throw new ParameterSpecException("OutFileDirectory is missing.");
+            }
+
+            if (!Directory.Exists(OutFileDirectory))
+            {
+                throw new ParameterSpecException("OutFileDirectory does not exist.");
             }
 
             string OutFileName = String.Format(TableName + "_Backup_" + System.DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt");
@@ -520,5 +530,47 @@ namespace TheByteStuff.AzureTableUtilities
             {
             }
         } // BackupTableToBlobDirect
+
+
+
+        /// <summary>
+        /// Backup all tables direct to Blob storage.
+        /// </summary>
+        /// <param name="BlobRoot">Name to use as blob root folder.</param>
+        /// <param name="Compress">True to compress the file.</param>
+        /// <param name="RetentionDays">Process will age files in blob created more than x days ago.</param>
+        /// <param name="TimeoutSeconds">Set timeout for table client.</param>
+        /// <param name="filters">A list of Filter objects to be applied to table values extracted.</param>
+        /// <returns>A string containing the name of the file(s) created as well as any backups aged.</returns>
+        public string BackupAllTablesToBlob(string BlobRoot, bool Compress = false, int RetentionDays = 30, int TimeoutSeconds = 30, List<Filter> filters = default(List<Filter>))
+        {
+            if (String.IsNullOrWhiteSpace(BlobRoot))
+            {
+                throw new ParameterSpecException("BlobRoot is missing.");
+            }
+
+            try
+            {
+                StringBuilder BackupResults = new StringBuilder();
+                List<string> TableNames = Helper.GetTableNames(AzureTableConnectionSpec);
+                if (TableNames.Count() > 0)
+                {
+                    foreach (string TableName in TableNames)
+                    {
+                        BackupResults.Append(BackupTableToBlobDirect(TableName, BlobRoot, Compress, RetentionDays, TimeoutSeconds, filters) + "|");
+                    }
+                    return BackupResults.ToString();
+                }
+                else
+                {
+                    return "No Tables found.";
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new BackupFailedException(String.Format("Backup of all tables to blob '{0}' failed.", BlobRoot), ex);
+            }
+        } // BackupAllTablesToBlob
+
     }
 }

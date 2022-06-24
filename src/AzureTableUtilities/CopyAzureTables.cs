@@ -23,6 +23,8 @@ using Newtonsoft.Json;
 
 using TheByteStuff.AzureTableUtilities.Exceptions;
 
+using System.Runtime.InteropServices;
+
 namespace TheByteStuff.AzureTableUtilities
 {
     /// <summary>
@@ -96,7 +98,7 @@ namespace TheByteStuff.AzureTableUtilities
         /// <param name="SourceTableName">Name of table to copy from.</param>
         /// <param name="DestinationTableName">Name of table to copy to.</param>
         /// <param name="TimeoutSeconds">Set timeout for table client.</param>
-        /// <param name="filters">A list of Filter objects to be applied to table values extracted.</param> 
+        /// <param name="filters">A list of Filter objects to be applied to table values copied.</param> 
         /// <returns>A string indicating the result of the operation.</returns>
         public string CopyTableToTable(string SourceTableName, string DestinationTableName, int TimeoutSeconds = 30, List<Filter> filters = default(List<Filter>))
         {
@@ -230,6 +232,85 @@ namespace TheByteStuff.AzureTableUtilities
             }
             finally
             {
+            }
+        }
+
+
+
+        /// <summary>
+        /// This method will copy all tables from entries from AzureSourceTableConnection to AzureDestinationTableConnection.  The destination table is NOT deleted first.
+        /// </summary>
+        /// <param name="TimeoutSeconds">Set timeout for table client.</param>
+        /// <param name="filters">A list of Filter objects to be applied to table values copied.</param> 
+        /// <returns>A string indicating the result of the operation.</returns>
+        public string CopyAllTables(int TimeoutSeconds = 30, List<Filter> filters = default(List<Filter>))
+        {
+            if (IsEqualTo(AzureSourceTableConnection, AzureDestinationTableConnection))
+            {
+                throw new ParameterSpecException("Source and Destination Connection specs can not match for CopyAll.");
+            }
+
+            if (!Filter.AreFiltersValid(filters))
+            {
+                throw new ParameterSpecException(String.Format("One or more of the supplied filter criteria is invalid."));
+            }
+
+            StringBuilder BackupResults = new StringBuilder();
+            try
+            {
+                List<string> TableNames = Helper.GetTableNames(AzureSourceTableConnection);
+                if (TableNames.Count > 0)
+                {
+                    foreach (string TableName in TableNames)
+                    {
+                        BackupResults.Append(CopyTableToTable(TableName, TableName, TimeoutSeconds, filters) + "|");
+                    }
+                    return BackupResults.ToString();
+                }
+                else
+                {
+                    return "No Tables found.";
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new CopyFailedException(String.Format("Operation CopyAllTables failed."), ex);
+            }
+        }
+
+
+        /// <summary>
+        /// Test if two SecureString values are equal.
+        /// </summary>
+        /// <param name="ss1"></param>
+        /// <param name="ss2"></param>
+        /// <returns>bool</returns>
+        private bool IsEqualTo(SecureString ss1, SecureString ss2)
+        {
+            IntPtr bstr1 = IntPtr.Zero;
+            IntPtr bstr2 = IntPtr.Zero;
+            try
+            {
+                bstr1 = Marshal.SecureStringToBSTR(ss1);
+                bstr2 = Marshal.SecureStringToBSTR(ss2);
+                int length1 = Marshal.ReadInt32(bstr1, -4);
+                int length2 = Marshal.ReadInt32(bstr2, -4);
+                if (length1 == length2)
+                {
+                    for (int x = 0; x < length1; ++x)
+                    {
+                        byte b1 = Marshal.ReadByte(bstr1, x);
+                        byte b2 = Marshal.ReadByte(bstr2, x);
+                        if (b1 != b2) return false;
+                    }
+                }
+                else return false;
+                return true;
+            }
+            finally
+            {
+                if (bstr2 != IntPtr.Zero) Marshal.ZeroFreeBSTR(bstr2);
+                if (bstr1 != IntPtr.Zero) Marshal.ZeroFreeBSTR(bstr1);
             }
         }
     }
