@@ -16,8 +16,9 @@ using AZBlob = Microsoft.Azure.Storage.Blob;
 using Microsoft.Azure.Storage.Core;
 using Microsoft.Azure.Storage.File;
 
-using Cosmos = Microsoft.Azure.Cosmos;
-using CosmosTable = Microsoft.Azure.Cosmos.Table;
+using Azure.Data.Tables;
+using Azure.Data.Tables.Models;
+using Azure;
 
 using Newtonsoft.Json;
 
@@ -32,9 +33,10 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class CopyAzureTables
     {
-        private SecureString AzureSourceTableConnection = new SecureString();
-        private SecureString AzureDestinationTableConnection = new SecureString();
-
+        //private SecureString AzureSourceTableConnection = new SecureString();
+        //private SecureString AzureDestinationTableConnection = new SecureString();
+        private StringBuilder AzureSourceTableConnection = new StringBuilder();
+        private StringBuilder AzureDestinationTableConnection = new StringBuilder();
         /// <summary>
         /// Constructor, sets same connection spec for both the Source and Destination Azure Tables.
         /// </summary>
@@ -67,11 +69,13 @@ namespace TheByteStuff.AzureTableUtilities
 
             foreach (char c in AzureSourceTableConnection.ToCharArray())
             {
-                this.AzureSourceTableConnection.AppendChar(c);
+                //this.AzureSourceTableConnection.AppendChar(c);
+                this.AzureSourceTableConnection.Append(c);
             }
             foreach (char c in AzureDestinationTableConnection.ToCharArray())
             {
-                this.AzureDestinationTableConnection.AppendChar(c);
+                //this.AzureDestinationTableConnection.AppendChar(c);
+                this.AzureDestinationTableConnection.Append(c);
             }
         }
 
@@ -87,8 +91,8 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
 
-            this.AzureSourceTableConnection = AzureSourceTableConnection;
-            this.AzureDestinationTableConnection = AzureDestinationTableConnection;
+            //this.AzureSourceTableConnection = AzureSourceTableConnection;
+            //this.AzureDestinationTableConnection = AzureDestinationTableConnection;
         }
 
 
@@ -117,85 +121,61 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ParameterSpecException(String.Format("One or more of the supplied filter criteria is invalid."));
             }
 
+            int BatchSize = 98;
+            int BatchCount = 0;
+            long TotalRecordCountIn = 0;
+            long TotalRecordCountOut = 0;
+
+            bool BatchWritten = true;
+            string PartitionKey = String.Empty;
+            //CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
+            List<TableTransactionAction> Batch = new List<TableTransactionAction>();
+
             try
             {
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureSourceTableConnection).Password, out CosmosTable.CloudStorageAccount StorageAccountSource))
+                TableServiceClient clientSource = new TableServiceClient(AzureSourceTableConnection.ToString());
+
+                TableServiceClient clientDestination = new TableServiceClient(AzureDestinationTableConnection.ToString());
+                TableItem TableDest = clientDestination.CreateTableIfNotExists(DestinationTableName);
+
+                Pageable<TableEntity> queryResultsFilter = clientSource.GetTableClient(SourceTableName).Query<TableEntity>(filter: Filter.BuildFilterSpec(filters), maxPerPage: BatchSize);
+                // Set Timeout?
+
+                BatchCount = 0;
+                foreach (Page<TableEntity> page in queryResultsFilter.AsPages())
                 {
-                    throw new ConnectionException("Can not connect to CloudStorage Account for Source Table.  Verify connection string.");
-                }
-
-                CosmosTable.CloudTableClient clientSource = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccountSource, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable TableSource = clientSource.GetTableReference(SourceTableName);
-                TableSource.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
-
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureDestinationTableConnection).Password, out CosmosTable.CloudStorageAccount StorageAccountDest))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account for Destination Table.  Verify connection string.");
-                }
-
-                CosmosTable.CloudTableClient clientDestnation = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccountDest, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable TableDest = clientDestnation.GetTableReference(DestinationTableName);
-                TableDest.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
-                TableDest.CreateIfNotExists();
-
-                bool BatchWritten = true;
-                string PartitionKey = String.Empty;
-                CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
-                int BatchSize = 100;
-                int BatchCount = 0;
-                long TotalRecordCountIn = 0;
-                long TotalRecordCountOut = 0;
-                CosmosTable.TableContinuationToken token = null;
-
-                do
-                {
-                    CosmosTable.TableQuery<CosmosTable.DynamicTableEntity> tq;
-                    if (default(List<Filter>) == filters)
+                    foreach (TableEntity qEntity in page.Values)
                     {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>();
-
-                    }
-                    else
-                    {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>().Where(Filter.BuildFilterSpec(filters));
-                    }
-                    var queryResult = TableSource.ExecuteQuerySegmented(tq, token);
-
-                    foreach (CosmosTable.DynamicTableEntity dte in queryResult.Results)
-                    {
-                        TotalRecordCountIn++;
-                        if (String.Empty.Equals(PartitionKey)) { PartitionKey = dte.PartitionKey; }
-                        if (dte.PartitionKey == PartitionKey)
+                        // Build a batch to insert
+                        if (String.Empty.Equals(PartitionKey)) { PartitionKey = qEntity.PartitionKey; }
+                        if (qEntity.PartitionKey == PartitionKey)
                         {
-                            Batch.InsertOrReplace(dte);
+                            Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, qEntity));
                             BatchCount++;
-                            TotalRecordCountOut++;
+                            TotalRecordCountIn++;
                             BatchWritten = false;
                         }
                         else
                         {
-                            try
-                            {
-                                TableDest.ExecuteBatch(Batch);
-                                Batch = new CosmosTable.TableBatchOperation();
-                                PartitionKey = dte.PartitionKey;
-                                Batch.InsertOrReplace(dte);
-                                BatchCount = 1;
-                                TotalRecordCountOut++;
-                                BatchWritten = false;
-                            }
-                            catch (Exception ex)
-                            {
-                                throw new CopyFailedException(String.Format("Table '{0}' copy to '{1}' failed.", SourceTableName, DestinationTableName), ex);
-                            }
+                            Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                            TotalRecordCountOut = TotalRecordCountOut + Batch.Count;
+                            Batch = new List<TableTransactionAction>();
+
+                            PartitionKey = qEntity.PartitionKey;
+                            Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, qEntity));
+                            BatchCount = 1;
+                            TotalRecordCountIn++;
+                            BatchWritten = false;
                         }
                         if (BatchCount >= BatchSize)
                         {
                             try
                             {
-                                TableDest.ExecuteBatch(Batch);
+                                Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                                TotalRecordCountOut = TotalRecordCountOut + Batch.Count;
+
+                                Batch = new List<TableTransactionAction>();
                                 PartitionKey = String.Empty;
-                                Batch = new CosmosTable.TableBatchOperation();
                                 BatchWritten = true;
                                 BatchCount = 0;
                             }
@@ -205,20 +185,15 @@ namespace TheByteStuff.AzureTableUtilities
                             }
                         }
                     }
-                    token = queryResult.ContinuationToken;
-                } while (token != null);
-
+                }
                 if (!BatchWritten)
                 {
-                    try
-                    {
-                        TableDest.ExecuteBatch(Batch);
-                        PartitionKey = String.Empty;
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new CopyFailedException(String.Format("Table '{0}' copy to '{1}'  failed.", SourceTableName, DestinationTableName), ex);
-                    }
+                    Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                    TotalRecordCountOut = TotalRecordCountOut + Batch.Count;
+                    Batch = new List<TableTransactionAction>();
+                    PartitionKey = String.Empty;
+                    BatchCount = 0;
+                    BatchWritten = true;
                 }
                 return String.Format("Table '{0}' copied to table '{1}', total records {2}.", SourceTableName, DestinationTableName, TotalRecordCountIn);
             }
@@ -228,7 +203,14 @@ namespace TheByteStuff.AzureTableUtilities
             }
             catch (Exception ex)
             {
-                throw new CopyFailedException(String.Format("Table '{0}' copy to '{1}' failed.", SourceTableName, DestinationTableName), ex);
+                if (ex.ToString().Contains("Azure.Core.ConnectionString.Validate"))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+                else
+                {
+                    throw new CopyFailedException(String.Format("Table '{0}' copy to '{1}' failed.", SourceTableName, DestinationTableName), ex);
+                }
             }
             finally
             {
@@ -244,7 +226,8 @@ namespace TheByteStuff.AzureTableUtilities
         /// <returns>A string indicating the result of the operation.</returns>
         public string CopyAllTables(int TimeoutSeconds = 30, List<Filter> filters = default(List<Filter>))
         {
-            if (IsEqualTo(AzureSourceTableConnection, AzureDestinationTableConnection))
+            //if (IsEqualTo(AzureSourceTableConnection.ToString(), AzureDestinationTableConnection.ToString()))
+            if (AzureSourceTableConnection.ToString().Equals(AzureDestinationTableConnection.ToString()))
             {
                 throw new ParameterSpecException("Source and Destination Connection specs can not match for CopyAll.");
             }
@@ -257,7 +240,7 @@ namespace TheByteStuff.AzureTableUtilities
             StringBuilder BackupResults = new StringBuilder();
             try
             {
-                List<string> TableNames = Helper.GetTableNames(AzureSourceTableConnection);
+                List<string> TableNames = Helper.GetTableNames(AzureSourceTableConnection.ToString());
                 if (TableNames.Count > 0)
                 {
                     foreach (string TableName in TableNames)

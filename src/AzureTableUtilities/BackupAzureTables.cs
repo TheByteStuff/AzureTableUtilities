@@ -16,8 +16,9 @@ using AZBlob = Microsoft.Azure.Storage.Blob;
 using Microsoft.Azure.Storage.Core;
 using Microsoft.Azure.Storage.File;
 
-using Cosmos = Microsoft.Azure.Cosmos;
-using CosmosTable = Microsoft.Azure.Cosmos.Table;
+using AzureTables = Azure.Data.Tables;
+using Azure.Data.Tables.Models;
+using Azure;
 
 using Newtonsoft.Json;
 
@@ -30,8 +31,10 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class BackupAzureTables
     {
-        private SecureString AzureTableConnectionSpec = new SecureString();
-        private SecureString AzureBlobConnectionSpec = new SecureString();
+        //private SecureString AzureTableConnectionSpec = new SecureString();
+        //private SecureString AzureBlobConnectionSpec = new SecureString();
+        private string AzureTableConnectionSpec = "";
+        private string AzureBlobConnectionSpec = "";
 
         /// <summary>
         /// Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
@@ -46,10 +49,12 @@ namespace TheByteStuff.AzureTableUtilities
         /// Constructor, accepts SecureString and sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
         /// </summary>
         /// <param name="AzureConnection">Connection string for Azure Table and Blob Connections</param>
+        /*
         public BackupAzureTables(SecureString AzureConnection) : this(AzureConnection, AzureConnection)
         {
 
         }
+        */
 
         /// <summary>
         /// Constructor, allows a different connection spec for Azure Table and Azure Blob storage.
@@ -63,6 +68,9 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
 
+            AzureTableConnectionSpec = AzureTableConnection;
+            AzureBlobConnectionSpec = AzureBlobConnection;
+            /*
             foreach (char c in AzureTableConnection.ToCharArray())
             {
                 AzureTableConnectionSpec.AppendChar(c);
@@ -71,6 +79,7 @@ namespace TheByteStuff.AzureTableUtilities
             {
                 AzureBlobConnectionSpec.AppendChar(c);
             }
+            */
         }
 
 
@@ -79,6 +88,7 @@ namespace TheByteStuff.AzureTableUtilities
         /// </summary>
         /// <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
         /// <param name="AzureBlobConnection">Connection string for Azure Blob Connection as a SecureString</param>
+        /*
         public BackupAzureTables(SecureString AzureTableConnection, SecureString AzureBlobConnection)
         {
             if (Helper.IsSecureStringNullOrEmpty(AzureTableConnection) || Helper.IsSecureStringNullOrEmpty(AzureBlobConnection))
@@ -89,6 +99,7 @@ namespace TheByteStuff.AzureTableUtilities
             AzureTableConnectionSpec = AzureTableConnection;
             AzureBlobConnectionSpec = AzureBlobConnection;
         }
+        */
 
         /// <summary>
         /// Create a blob file copy of the Azure Table specified.
@@ -243,48 +254,36 @@ namespace TheByteStuff.AzureTableUtilities
                 OutFileNamePath = Path.Combine(OutFileDirectory, OutFileName);
                 OutFileNamePathCompressed = Path.Combine(OutFileDirectory, OutFileNameCompressed);
             }
-            if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
-            {
-                throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-            }
 
             try
             {
-                CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable table = client.GetTableReference(TableName);
-                table.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
-
-                CosmosTable.TableContinuationToken token = null;
-                var entities = new List<CosmosTable.DynamicTableEntity>();
                 var entitiesSerialized = new List<string>();
 
                 DynamicTableEntityJsonSerializer serializer = new DynamicTableEntityJsonSerializer();
 
                 TableSpec TableSpecStart = new TableSpec(TableName);
 
+                AzureTables.TableServiceClient clientSource = new AzureTables.TableServiceClient(AzureTableConnectionSpec.ToString());
+
+                Pageable<AzureTables.TableEntity> queryResultsFilter = clientSource.GetTableClient(TableName).Query<AzureTables.TableEntity>(filter: Filter.BuildFilterSpec(filters), maxPerPage: 100);
+
                 using (StreamWriter OutFile = new StreamWriter(OutFileNamePath))
                 {
                     OutFile.WriteLine(JsonConvert.SerializeObject(TableSpecStart));
-                    CosmosTable.TableQuery<CosmosTable.DynamicTableEntity> tq;
-                    if (default(List<Filter>) == filters)
-                    {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>();
 
-                    }
-                    else
+                    foreach (Page<AzureTables.TableEntity> page in queryResultsFilter.AsPages())
                     {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>().Where(Filter.BuildFilterSpec(filters));
-                    }
-                    do
-                    {
-                        var queryResult = table.ExecuteQuerySegmented(tq, token);
-                        foreach (CosmosTable.DynamicTableEntity dte in queryResult.Results)
+                        List<AzureTables.TableEntity> entityList = new List<AzureTables.TableEntity>();
+
+                        foreach (AzureTables.TableEntity qEntity in page.Values)
                         {
-                            OutFile.WriteLine(serializer.Serialize(dte));
+                            // Build a batch to insert
+                            entityList.Add(qEntity);
+                            //OutFile.WriteLine(JsonConvert.SerializeObject(qEntity));  // Int32 type gets lost with stock serializer
+                            OutFile.WriteLine(serializer.Serialize(qEntity));
                             RecordCount++;
                         }
-                        token = queryResult.ContinuationToken;
-                    } while (token != null);
+                    }
 
                     TableSpec TableSpecEnd = new TableSpec(TableName, RecordCount);
                     OutFile.WriteLine(JsonConvert.SerializeObject(TableSpecEnd));
@@ -363,7 +362,14 @@ namespace TheByteStuff.AzureTableUtilities
             }
             catch (Exception ex)
             {
-                throw new BackupFailedException(String.Format("Table '{0}' backup failed.", TableName), ex);
+                if (ex.ToString().Contains("Azure.Core.ConnectionString.Validate"))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+                else
+                {
+                    throw new BackupFailedException(String.Format("Table '{0}' backup failed.", TableName), ex);
+                }
             }
             return OutFileCreated;
         }
@@ -406,11 +412,6 @@ namespace TheByteStuff.AzureTableUtilities
                     OutFileName = String.Format(TableName + "_Backup_" + System.DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt");
                 }
 
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-                }
-
                 if (!AZStorage.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureBlobConnectionSpec).Password, out AZStorage.CloudStorageAccount StorageAccountAZ))
                 {
                     throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
@@ -427,12 +428,11 @@ namespace TheByteStuff.AzureTableUtilities
                 // start upload from stream, iterate through table, possible inline compress
                 try
                 {
-                    CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
-                    CosmosTable.CloudTable table = client.GetTableReference(TableName);
-                    table.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
+                    AzureTables.TableServiceClient clientSource = new AzureTables.TableServiceClient(AzureTableConnectionSpec.ToString());
 
-                    CosmosTable.TableContinuationToken token = null;
-                    var entities = new List<CosmosTable.DynamicTableEntity>();
+                    //TODO  Timeout set?
+                    //table.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
+
                     var entitiesSerialized = new List<string>();
                     DynamicTableEntityJsonSerializer serializer = new DynamicTableEntityJsonSerializer();
 
@@ -457,30 +457,20 @@ namespace TheByteStuff.AzureTableUtilities
                     bs.Write(NewLineAsBytes, 0, NewLineAsBytes.Length);
                     bs.Flush();
 
-                    CosmosTable.TableQuery<CosmosTable.DynamicTableEntity> tq;
-                    if (default(List<Filter>) == filters)
+                    Pageable<AzureTables.TableEntity> queryResultsFilter = clientSource.GetTableClient(TableName).Query<AzureTables.TableEntity>(filter: Filter.BuildFilterSpec(filters), maxPerPage: 100);
+                    foreach (Page<AzureTables.TableEntity> page in queryResultsFilter.AsPages())
                     {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>();
-                    }
-                    else
-                    {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>().Where(Filter.BuildFilterSpec(filters));
-                    }
-                    do
-                    {
-                        var queryResult = table.ExecuteQuerySegmented(tq, token);
-                        foreach (CosmosTable.DynamicTableEntity dte in queryResult.Results)
+                        foreach (AzureTables.TableEntity qEntity in page.Values)
                         {
-                            var tempDTE = Encoding.UTF8.GetBytes(serializer.Serialize(dte));
+                            // var tempDTE = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(qEntity));  // Int32 type gets lost in stock serializer
+                            var tempDTE = Encoding.UTF8.GetBytes(serializer.Serialize(qEntity));
                             bs.Write(tempDTE, 0, tempDTE.Length);
                             bs.Flush();
                             bs.Write(NewLineAsBytes, 0, NewLineAsBytes.Length);
                             bs.Flush();
                             RecordCount++;
                         }
-                        token = queryResult.ContinuationToken;
-                    } while (token != null);
-
+                     }
                     TableSpec TableSpecEnd = new TableSpec(TableName, RecordCount);
                     var tempTableSpecEnd = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(TableSpecEnd));
                     bs.Write(tempTableSpecEnd, 0, tempTableSpecEnd.Length);

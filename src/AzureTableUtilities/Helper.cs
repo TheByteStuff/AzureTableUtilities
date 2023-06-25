@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Security;
 
-using Cosmos = Microsoft.Azure.Cosmos;
-using CosmosTable = Microsoft.Azure.Cosmos.Table;
+using Azure.Data.Tables;
+using Azure.Data.Tables.Models;
+using Azure;
 
 using TheByteStuff.AzureTableUtilities.Exceptions;
 
@@ -32,22 +33,30 @@ namespace TheByteStuff.AzureTableUtilities
             }
         }
 
+        public static bool IsStringNullOrEmpty(string value)
+        {
+            if ((null == value) || (value.Length == 0))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         /// <summary>
         /// Return a list of table names for the given azure connection.
         /// </summary>
         /// <param name="AzureTableConnection"></param>
         /// <returns></returns>
-        public static List<string> GetTableNames(SecureString AzureTableConnection)
+        public static List<string> GetTableNames(String AzureTableConnection)
         {
             List<string> TableNames = new List<string>();
-            if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnection).Password, out CosmosTable.CloudStorageAccount StorageAccount))
-            {
-                throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-            }
 
-            CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
-            var result = client.ListTables();
-            foreach (var Table in result)
+            TableServiceClient client = new TableServiceClient(AzureTableConnection.ToString());
+            Pageable<TableItem> result = client.Query();
+            foreach (TableItem Table in result)
             {
                 TableNames.Add(Table.Name);
             }

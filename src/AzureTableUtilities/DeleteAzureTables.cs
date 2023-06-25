@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Security;
 
-using CosmosTable = Microsoft.Azure.Cosmos.Table;
+using Azure.Data.Tables;
+using Azure.Data.Tables.Models;
+using Azure;
 
 using TheByteStuff.AzureTableUtilities.Exceptions;
 
@@ -14,7 +16,8 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class DeleteAzureTables
     {
-        private SecureString AzureTableConnectionSpec = new SecureString();
+        //private SecureString AzureTableConnectionSpec = new SecureString();
+        private StringBuilder AzureTableConnectionSpec = new StringBuilder();
 
         /// <summary>
         /// Constructor, sets the connection spec for the Azure Tables.
@@ -29,7 +32,7 @@ namespace TheByteStuff.AzureTableUtilities
 
             foreach (char c in AzureTableConnection.ToCharArray())
             {
-                AzureTableConnectionSpec.AppendChar(c);
+                AzureTableConnectionSpec.Append(c);
             }
         }
 
@@ -37,15 +40,18 @@ namespace TheByteStuff.AzureTableUtilities
         /// Constructor, sets the connection spec for the Azure Tables.
         /// </summary>
         /// <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
-        public DeleteAzureTables(SecureString AzureTableConnection)
+        /*
+        public DeleteAzureTables(string AzureTableConnection)
         {
-            if (Helper.IsSecureStringNullOrEmpty(AzureTableConnection))
+            //if (Helper.IsSecureStringNullOrEmpty(AzureTableConnection))
+            if (Helper.IsStringNullOrEmpty(AzureTableConnection))
             {
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
 
-            AzureTableConnectionSpec = AzureTableConnection;
+            AzureTableConnectionSpec = new StringBuilder(AzureTableConnection);
         }
+        */
 
         /// <summary>
         /// This method will delete the table name specified.  The operation will be considered successful even if the table name does not exist.
@@ -94,45 +100,27 @@ namespace TheByteStuff.AzureTableUtilities
 
             try
             {
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccountSource))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account for Source Table.  Verify connection string.");
-                }
-
-                CosmosTable.CloudTableClient clientSource = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccountSource, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable TableSource = clientSource.GetTableReference(TableNameToDelete);
-                TableSource.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
+                TableServiceClient clientSource = new TableServiceClient(AzureTableConnectionSpec.ToString());
 
                 bool BatchWritten = true;
                 string PartitionKey = String.Empty;
-                CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
-                int BatchSize = 100;
+                int BatchSize = 98;
                 int BatchCount = 0;
                 long TotalRecordCountIn = 0;
                 long TotalRecordCountOut = 0;
-                CosmosTable.TableContinuationToken token = null;
+                List<TableTransactionAction> Batch = new List<TableTransactionAction>();
 
-                do
+                Pageable<TableEntity> queryResult = clientSource.GetTableClient(TableNameToDelete).Query<TableEntity>(filter: Filter.BuildFilterSpec(filters), maxPerPage: BatchSize);
+                foreach (Page<TableEntity> page in queryResult.AsPages())
                 {
-                    CosmosTable.TableQuery<CosmosTable.DynamicTableEntity> tq;
-                    if (default(List<Filter>) == filters)
-                    {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>();
-
-                    }
-                    else
-                    {
-                        tq = new CosmosTable.TableQuery<CosmosTable.DynamicTableEntity>().Where(Filter.BuildFilterSpec(filters));
-                    }
-                    var queryResult = TableSource.ExecuteQuerySegmented(tq, token);
-
-                    foreach (CosmosTable.DynamicTableEntity dte in queryResult.Results)
+                    foreach (TableEntity dte in page.Values)
                     {
                         TotalRecordCountIn++;
                         if (String.Empty.Equals(PartitionKey)) { PartitionKey = dte.PartitionKey; }
                         if (dte.PartitionKey == PartitionKey)
                         {
-                            Batch.Delete(dte);
+                            //Batch.Delete(dte);
+                            Batch.Add(new TableTransactionAction(TableTransactionActionType.Delete, dte));
                             BatchCount++;
                             TotalRecordCountOut++;
                             BatchWritten = false;
@@ -141,10 +129,12 @@ namespace TheByteStuff.AzureTableUtilities
                         {
                             try
                             {
-                                TableSource.ExecuteBatch(Batch);
-                                Batch = new CosmosTable.TableBatchOperation();
+                                //TableSource.ExecuteBatch(Batch);
+                                Response<IReadOnlyList<Response>> response = clientSource.GetTableClient(TableNameToDelete).SubmitTransaction(Batch);
+                                Batch = new List<TableTransactionAction>();
                                 PartitionKey = dte.PartitionKey;
-                                Batch.Delete(dte);
+                                //Batch.Delete(dte);
+                                Batch.Add(new TableTransactionAction(TableTransactionActionType.Delete, dte));
                                 BatchCount = 1;
                                 TotalRecordCountOut++;
                                 BatchWritten = false;
@@ -157,27 +147,27 @@ namespace TheByteStuff.AzureTableUtilities
                         if (BatchCount >= BatchSize)
                         {
                             try
-                            {
-                                TableSource.ExecuteBatch(Batch);
-                                PartitionKey = String.Empty;
-                                Batch = new CosmosTable.TableBatchOperation();
-                                BatchWritten = true;
-                                BatchCount = 0;
-                            }
+                            { 
+                            Response<IReadOnlyList<Response>> response = clientSource.GetTableClient(TableNameToDelete).SubmitTransaction(Batch);
+                            TotalRecordCountOut = TotalRecordCountOut+Batch.Count;
+
+                            Batch = new List<TableTransactionAction>();
+                            PartitionKey = String.Empty;
+                            BatchWritten = true;
+                            BatchCount = 0;
+                        }
                             catch (Exception ex)
                             {
                                 throw new DeleteFailedException(String.Format("Table '{0}' row deletion failed.", TableNameToDelete), ex);
                             }
                         }
-                    }
-                    token = queryResult.ContinuationToken;
-                } while (token != null);
-
+                        }
+                }
                 if (!BatchWritten)
                 {
                     try
-                    {
-                        TableSource.ExecuteBatch(Batch);
+                    { 
+                        Response<IReadOnlyList<Response>> response = clientSource.GetTableClient(TableNameToDelete).SubmitTransaction(Batch);
                         PartitionKey = String.Empty;
                     }
                     catch (Exception ex)
@@ -193,7 +183,14 @@ namespace TheByteStuff.AzureTableUtilities
             }
             catch (Exception ex)
             {
-                throw new DeleteFailedException(String.Format("Table '{0}' row deletion failed.", TableNameToDelete), ex);
+                if (ex.ToString().Contains("Azure.Core.ConnectionString.Validate"))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+                else
+                {
+                    throw new DeleteFailedException(String.Format("Table '{0}' row deletion failed.", TableNameToDelete), ex);
+                }
             }
             finally
             {
@@ -205,25 +202,18 @@ namespace TheByteStuff.AzureTableUtilities
         {
             try
             {
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-                }
+                TableServiceClient clientSource = new TableServiceClient(AzureTableConnectionSpec.ToString());
 
-                CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable TableToDelete = client.GetTableReference(TableNameToDelete);
-                TableToDelete.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
-
-                bool TableExisted = TableToDelete.DeleteIfExists();
+                Response reponse = clientSource.DeleteTable(TableNameToDelete);
+                // Check response to see if exited?
 
                 if (Recreate)
                 {
-                    TableToDelete.CreateIfNotExists();
+                    clientSource.CreateTableIfNotExists(TableNameToDelete);
                 }
 
                 if (Recreate)
                 {
-                    //return String.Format("Table '{0}' did not exist.", TableNameToDelete);
                     return String.Format("Table '{0}' deleted and recreated.", TableNameToDelete);
                 }
                 else
@@ -238,7 +228,14 @@ namespace TheByteStuff.AzureTableUtilities
             }
             catch (Exception ex)
             {
-                throw new DeleteFailedException(String.Format("Table '{0}' delete failed.", TableNameToDelete), ex);
+                if (ex.ToString().Contains("Azure.Core.ConnectionString.Validate"))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+                else
+                {
+                    throw new DeleteFailedException(String.Format("Table '{0}' delete failed.", TableNameToDelete), ex);
+                }
             }
             finally
             {

@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <DebugType>Full</DebugType>
     <RootNamespace>TheByteStuff.AzureTableUtilities</RootNamespace>
-    <Version>4.6.3</Version>
+    <Version>6.0.0</Version>
     <Company>The Byte Stuff, LLC</Company>
     <Authors>The Byte Stuff, LLC</Authors>
     <Description>Backup, Copy, Delete and Restore options for use with Azure Tables.  An alternative to tools such as AZCopy.
@@ -12,7 +12,7 @@
 Backup destination may be to a local file or to Azure storage blob.  File may be optionally compressed (zipped).
 Copy allows for the same or different connection spec for Source and Destination.
 Restore location may be from local file or Azure storage blob.
- Blob storage and Azure Table storage connection specs may point to different servers to allow for use in production backup scenarios as well as for restoration of development environments.
+Blob storage and Azure Table storage connection specs may point to different servers to allow for use in production backup scenarios as well as for restoration of development environments.
 
 Restore/Copy will create the table if it does not exist, however data on an existing table will not be deleted. It may be overwritten depending on the source data.
 
@@ -31,7 +31,7 @@ Personal and commercial use of this software is free; however, a donation is app
 Code for a command line executable along with sample Docker build is available on GitHub -- https://github.com/TheByteStuff/AzureTableBackupRestore
 
 Suggestions or donations are both appreciated and welcome can be made by using the "Contact" tab at https://www.thebytestuff.com/Contact?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities
-
+v6.0.0 - ** Backup/Restore is NOT compatible with prior versions **   Upgrade from  Microsoft.Azure.Cosmos.Table library to Azure.Data.Table.   The Microsoft.Azure.Cosmos.Table library was deprecated on 3/31/2023.  The Azure.Data.Table API (TableEntity) required a change to retain proper data typing of Int32/Int64 during serlization and is not compatible with the prior version of the customized DynamicTableEntityJsonConverter/Serializer.  As a result, backup files created with prior versions are not compatible to be restored with this release.  Similarly, backups taken with this release may not be restored under prior versions.  It is possible to convert a prior file version to work with the new serialization.  At this time, no tool is being offered to do so.
 v5.0.0-pre - beta including Cosmos Table 2.0.0 Preview
 v4.6.3 - Updated to Newstonsoft.JSON  v13.0.2 per security vulnerability concern.
 v4.6.2 - Updated to Azure.Storage.Blobs v12.13.0 per security vulnerability concern.
@@ -52,19 +52,21 @@ v3.0 - added delete table option, refactored base exception to be AzureTableUtil
 v2.1 - added Filter constructor, corrected return message on successful copy.
 v2.0 - added "Copy" option as well as Filters.
 v1.0 - Initial release.</Description>
-    <Copyright>2020 -2022</Copyright>
+    <Copyright>2020 -2023</Copyright>
     <PackageProjectUrl>https://www.thebytestuff.com/azure-tables-backup-documentation?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities</PackageProjectUrl>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageLicenseUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/LICENSE</PackageLicenseUrl>
     <PackageIconUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/src/AzureTableUtilities/CardFront_Clip.png</PackageIconUrl>
-    <PackageReleaseNotes>Updated to Newstonsoft.Json  v13.0.2 per security vulnerability concern.</PackageReleaseNotes>
-    <AssemblyVersion>4.6.3.0</AssemblyVersion>
+    <PackageReleaseNotes>** Backup/Restore is NOT compatible with prior versions **   
+
+Upgrade from Microsoft.Azure.Cosmos.Table to Azure.Data.Table.   The Microsoft.Azure.Cosmos.Table library was deprecated on 3/31/2023.  The Azure.Data.Table API supports serialization directly and has different typing of serialized data than achived through the customized DynamicTableEntityJsonConverter/Serializer.  As a result, backup files created with prior versions are not compatible to be restored with this release.  Similarly, backups taken with this release may not be restored under prior versions.  It is possible to convert a prior file version to work with the new serialization.  At this time, no tool is being offered to do so.</PackageReleaseNotes>
+    <AssemblyVersion>6.0.0.0</AssemblyVersion>
     <RepositoryUrl>https://github.com/TheByteStuff/AzureTableUtilities</RepositoryUrl>
     <PackageTags>AzureTables AZCopy Backup Copy Delete Restore</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PackageId>TheByteStuff.AzureTableUtilities</PackageId>
-    <FileVersion>4.6.3.0</FileVersion>
+    <FileVersion>6.0.0.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -72,12 +74,12 @@ v1.0 - Initial release.</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Data.Tables" Version="12.8.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.13.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.11.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.7" />
     <PackageReference Include="Microsoft.Azure.Storage.Blob" Version="11.1.7" />
     <PackageReference Include="Microsoft.Azure.Storage.File" Version="11.1.7" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
   </ItemGroup>
 
 </Project>

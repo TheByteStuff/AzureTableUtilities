@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -15,8 +15,9 @@ using AZBlob = Microsoft.Azure.Storage.Blob;
 using Microsoft.Azure.Storage.Core;
 using Microsoft.Azure.Storage.File;
 
-using Cosmos = Microsoft.Azure.Cosmos;
-using CosmosTable = Microsoft.Azure.Cosmos.Table;
+using Azure.Data.Tables;
+using Azure.Data.Tables.Models;
+using Azure;
 
 using Newtonsoft.Json;
 
@@ -29,8 +30,10 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class RestoreAzureTables
     {
-        private SecureString AzureTableConnectionSpec = new SecureString();
-        private SecureString AzureBlobConnectionSpec = new SecureString();
+        //private SecureString AzureTableConnectionSpec = new SecureString();
+        //private SecureString AzureBlobConnectionSpec = new SecureString();
+        private string AzureTableConnectionSpec = "";
+        private string AzureBlobConnectionSpec = "";
 
         /// <summary>
         /// Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
@@ -45,10 +48,12 @@ namespace TheByteStuff.AzureTableUtilities
         /// Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
         /// </summary>
         /// <param name="AzureConnection"></param>
+        /*
         public RestoreAzureTables(SecureString AzureConnection) : this(AzureConnection, AzureConnection)
         {
 
         }
+        */
 
         /// <summary>
         /// Constructor, allows a different connection spec for Azure Table and Azure Blob storage.
@@ -62,6 +67,9 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
 
+            AzureTableConnectionSpec = AzureTableConnection;
+            AzureBlobConnectionSpec= AzureBlobConnection;
+            /*
             foreach (char c in AzureTableConnection.ToCharArray())
             {
                 AzureTableConnectionSpec.AppendChar(c);
@@ -70,6 +78,7 @@ namespace TheByteStuff.AzureTableUtilities
             {
                 AzureBlobConnectionSpec.AppendChar(c);
             }
+            */
         }
 
         /// <summary>
@@ -77,6 +86,7 @@ namespace TheByteStuff.AzureTableUtilities
         /// </summary>
         /// <param name="AzureTableConnection">Connection string for Azure Table Connection as a SecureString</param>
         /// <param name="AzureBlobConnection">Connection string for Azure Blob Connection as a SecureString</param>
+        /*
         public RestoreAzureTables(SecureString AzureTableConnection, SecureString AzureBlobConnection)
         {
             if (Helper.IsSecureStringNullOrEmpty(AzureTableConnection) || Helper.IsSecureStringNullOrEmpty(AzureBlobConnection))
@@ -87,6 +97,7 @@ namespace TheByteStuff.AzureTableUtilities
             AzureTableConnectionSpec = AzureTableConnection;
             AzureBlobConnectionSpec = AzureBlobConnection;
         }
+        */
 
 
         /// <summary>
@@ -208,7 +219,14 @@ namespace TheByteStuff.AzureTableUtilities
             }
             catch (Exception ex)
             {
-                throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                if (ex.ToString().Contains("Azure.Core.ConnectionString.Validate"))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+                else
+                {
+                    throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                }
             }
             finally
             {
@@ -247,22 +265,15 @@ namespace TheByteStuff.AzureTableUtilities
 
             try
             {
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-                }
-
-                CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable TableDest = client.GetTableReference(DestinationTableName);
-                TableDest.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
-                TableDest.CreateIfNotExists();
+                TableServiceClient clientDestination = new TableServiceClient(AzureTableConnectionSpec.ToString());
+                TableItem TableDest = clientDestination.CreateTableIfNotExists(DestinationTableName);
 
                 DynamicTableEntityJsonSerializer serializer = new DynamicTableEntityJsonSerializer();
 
                 bool BatchWritten = true;
                 string PartitionKey = String.Empty;
-                CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
-                int BatchSize = 100;
+                List<TableTransactionAction> Batch = new List<TableTransactionAction>();
+                int BatchSize = 98;
                 int BatchCount = 0;
                 long TotalRecordCount = 0;
 
@@ -282,11 +293,12 @@ namespace TheByteStuff.AzureTableUtilities
                         }
                         else
                         {
-                            CosmosTable.DynamicTableEntity dte2 = serializer.Deserialize(InFileLine);
+                            //TableEntity dte2 = JsonConvert.DeserializeObject<TableEntity>(InFileLine);
+                            TableEntity dte2 = serializer.Deserialize(InFileLine);
                             if (String.Empty.Equals(PartitionKey)) { PartitionKey = dte2.PartitionKey; }
                             if (dte2.PartitionKey == PartitionKey)
                             {
-                                Batch.InsertOrReplace(dte2);
+                                Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, dte2));
                                 BatchCount++;
                                 TotalRecordCount++;
                                 BatchWritten = false;
@@ -295,10 +307,10 @@ namespace TheByteStuff.AzureTableUtilities
                             {
                                 try
                                 {
-                                    TableDest.ExecuteBatch(Batch);
-                                    Batch = new CosmosTable.TableBatchOperation();
+                                    Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                                    Batch = new List<TableTransactionAction>();
                                     PartitionKey = dte2.PartitionKey;
-                                    Batch.InsertOrReplace(dte2);
+                                    Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, dte2));
                                     BatchCount = 1;
                                     TotalRecordCount++;
                                     BatchWritten = false;
@@ -312,9 +324,9 @@ namespace TheByteStuff.AzureTableUtilities
                             {
                                 try
                                 {
-                                    TableDest.ExecuteBatch(Batch);
+                                    Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                                     PartitionKey = String.Empty;
-                                    Batch = new CosmosTable.TableBatchOperation();
+                                    Batch = new List<TableTransactionAction>();
                                     BatchWritten = true;
                                     BatchCount = 0;
                                 }
@@ -332,7 +344,8 @@ namespace TheByteStuff.AzureTableUtilities
                     {
                         try
                         {
-                            TableDest.ExecuteBatch(Batch);
+                            //TableDest.ExecuteBatch(Batch);
+                            Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                             PartitionKey = String.Empty;
                         }
                         catch (Exception ex) {
@@ -366,7 +379,14 @@ namespace TheByteStuff.AzureTableUtilities
             }
             catch (Exception ex)
             {
-                throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                if (ex.ToString().Contains("Azure.Core.ConnectionString.Validate"))
+                {
+                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
+                }
+                else
+                {
+                    throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
+                }
             }
             finally
             {
@@ -446,11 +466,6 @@ namespace TheByteStuff.AzureTableUtilities
 
             try
             {
-                if (!CosmosTable.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureTableConnectionSpec).Password, out CosmosTable.CloudStorageAccount StorageAccount))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-                }
-
                 if (!AZStorage.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureBlobConnectionSpec).Password, out AZStorage.CloudStorageAccount StorageAccountAZ))
                 {
                     throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
@@ -482,16 +497,14 @@ namespace TheByteStuff.AzureTableUtilities
 
                 AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(BlobFileName);
 
-                CosmosTable.CloudTableClient client = CosmosTable.CloudStorageAccountExtensions.CreateCloudTableClient(StorageAccount, new CosmosTable.TableClientConfiguration());
-                CosmosTable.CloudTable TableDest = client.GetTableReference(DestinationTableName);
-                TableDest.ServiceClient.DefaultRequestOptions.ServerTimeout = new TimeSpan(0, 0, TimeoutSeconds);
-                TableDest.CreateIfNotExists();
+                TableServiceClient clientDestination = new TableServiceClient(AzureTableConnectionSpec.ToString());
+                TableItem TableDest = clientDestination.CreateTableIfNotExists(DestinationTableName);
 
                 using (Stream BlobStream = BlobBlock.OpenRead())
                 {
                     using (StreamReader InputFileStream = new StreamReader(BlobStream))
                     {
-                        string result = RestoreFromStream(InputFileStream, TableDest, DestinationTableName);
+                        string result = RestoreFromStream(InputFileStream, clientDestination, DestinationTableName);
                         if (Decompress)
                         {
                             AZBlob.CloudBlockBlob BlobBlockTemp = directory.GetBlockBlobReference(TempFileName);
@@ -519,11 +532,11 @@ namespace TheByteStuff.AzureTableUtilities
         } // RestoreTableFromBlobDirect
 
 
-        private string RestoreFromStream(StreamReader InputFileStream, CosmosTable.CloudTable TableDest, string DestinationTableName)
+        private string RestoreFromStream(StreamReader InputFileStream, TableServiceClient TableDest, string DestinationTableName)
         {
             bool BatchWritten = true;
             string PartitionKey = String.Empty;
-            CosmosTable.TableBatchOperation Batch = new CosmosTable.TableBatchOperation();
+            List<TableTransactionAction> Batch = new List<TableTransactionAction>();
             int BatchSize = 100;
             int BatchCount = 0;
             long TotalRecordCount = 0;
@@ -546,11 +559,12 @@ namespace TheByteStuff.AzureTableUtilities
                     }
                     else
                     {
-                        CosmosTable.DynamicTableEntity dte2 = serializer.Deserialize(InFileLine);
+                        //TableEntity dte2 = JsonConvert.DeserializeObject<TableEntity>(InFileLine);
+                        TableEntity dte2 = serializer.Deserialize(InFileLine);
                         if (String.Empty.Equals(PartitionKey)) { PartitionKey = dte2.PartitionKey; }
                         if (dte2.PartitionKey == PartitionKey)
                         {
-                            Batch.InsertOrReplace(dte2);
+                            Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, dte2));
                             BatchCount++;
                             TotalRecordCount++;
                             BatchWritten = false;
@@ -559,10 +573,10 @@ namespace TheByteStuff.AzureTableUtilities
                         {
                             try
                             {
-                                TableDest.ExecuteBatch(Batch);
-                                Batch = new CosmosTable.TableBatchOperation();
+                                Response<IReadOnlyList<Response>> response = TableDest.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                                Batch = new List<TableTransactionAction>();
                                 PartitionKey = dte2.PartitionKey;
-                                Batch.InsertOrReplace(dte2);
+                                Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, dte2));
                                 BatchCount = 1;
                                 TotalRecordCount++;
                                 BatchWritten = false;
@@ -576,9 +590,9 @@ namespace TheByteStuff.AzureTableUtilities
                         {
                             try
                             {
-                                TableDest.ExecuteBatch(Batch);
+                                Response<IReadOnlyList<Response>> response = TableDest.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                                 PartitionKey = String.Empty;
-                                Batch = new CosmosTable.TableBatchOperation();
+                                Batch = new List<TableTransactionAction>();
                                 BatchWritten = true;
                                 BatchCount = 0;
                             }
@@ -596,7 +610,8 @@ namespace TheByteStuff.AzureTableUtilities
                 {
                     try
                     {
-                        TableDest.ExecuteBatch(Batch);
+                        //TableDest.ExecuteBatch(Batch);
+                        Response<IReadOnlyList<Response>> response = TableDest.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                         PartitionKey = String.Empty;
                     }
                     catch (Exception ex)

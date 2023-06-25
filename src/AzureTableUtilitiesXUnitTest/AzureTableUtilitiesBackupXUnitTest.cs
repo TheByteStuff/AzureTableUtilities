@@ -11,6 +11,8 @@ using Microsoft.Extensions.Configuration.Json;
 using Xunit;
 using System.Linq;
 
+using Azure;
+using Azure.Data.Tables;
 using TheByteStuff.AzureTableUtilities;
 using TheByteStuff.AzureTableUtilities.Exceptions;
 
@@ -19,13 +21,9 @@ namespace AzureTableUtilitiesXUnitTest
 {
     public class AzureTableUtilitiesBackupXUnitTest
     {
-        //*
-        private string AzureStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;";
-        private string AzureBlobStorageConfigConnection = "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;";
-        /*/
-        private string AzureStorageConfigConnection = "<<azure storage connection spec>>";
-        private string AzureBlobStorageConfigConnection = "<<azure blob connection spec>>";
-        //*/
+        //* See ConnectionSpecManager for configuration information
+        private string AzureStorageConfigConnection = ConnectionSpecManager.GetConnectionSpec("AzureStorageConfigConnection", "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;TableEndpoint=http://127.0.0.1:11002/devstoreaccount1;");
+        private string AzureBlobStorageConfigConnection = ConnectionSpecManager.GetConnectionSpec("AzureBlobStorageConfigConnection", "AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:11000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:11001/devstoreaccount1;");
 
         private string BlobRoot = "test";
         private string BlobDirectRoot = "testdirect";
@@ -39,7 +37,8 @@ namespace AzureTableUtilitiesXUnitTest
         private string FileNamePathThatExists_UserProfile;
         private string FileNamePathThatExists_SystemLogs;
         private string FileNamePathThatExists_SystemLogs_LargeFile;
-
+        private string FileNameTableTypes;
+        private string FileNamePathTableTypes;
 
         public AzureTableUtilitiesBackupXUnitTest()
         {
@@ -56,6 +55,9 @@ namespace AzureTableUtilitiesXUnitTest
 
             FileNameThatExists = @"SystemLogs_LargeFile_ForXUnit.txt";
             FileNamePathThatExists_SystemLogs_LargeFile = WorkingDirectory + @"\" + FileNameThatExists;
+
+            FileNameTableTypes = @"TestTableTypes.txt";
+            FileNamePathTableTypes = WorkingDirectory + @"\" + FileNameTableTypes;
         }
 
 
@@ -338,6 +340,116 @@ namespace AzureTableUtilitiesXUnitTest
             string backupallresult = instanceBackup.BackupAllTablesToBlob(BlobDirectRoot, true, 10, 10);
             Assert.Contains(Expected1, backupallresult.ToString());
             Assert.Contains(Expected2, backupallresult.ToString());
+        }
+
+
+        private List<TableEntity> QueryTable(string TableName)
+        {
+
+            TableServiceClient clientSource = new TableServiceClient(AzureStorageConfigConnection.ToString());
+            Pageable<TableEntity> queryResultsFilter = clientSource.GetTableClient(TableName).Query<TableEntity>(filter: "", maxPerPage: 100);
+            List<TableEntity> entityList = new List<TableEntity>();
+
+            try
+            {
+
+                foreach (Page<TableEntity> page in queryResultsFilter.AsPages())
+                {
+                    foreach (TableEntity qEntity in page.Values)
+                    {
+                        entityList.Add(qEntity);
+                    }
+                }
+            }
+            finally { }
+            return entityList;
+        }
+
+        private Dictionary<string, KeyValuePair<string, bool>> CreateTypesToVerify()
+        {
+            Dictionary<string, KeyValuePair<string, bool>> list = new Dictionary<string, KeyValuePair<string, bool>>();
+
+            list.Add("Int32Field", new KeyValuePair<string, bool>( "Int32", false));
+            list.Add("Int64Field", new KeyValuePair<string, bool>("Int64", false));
+            list.Add("StringField", new KeyValuePair<string, bool>("String", false));
+            list.Add("DoubleField", new KeyValuePair<string, bool>("Double", false));
+            list.Add("BooleanField1", new KeyValuePair<string, bool>("Boolean", false));
+            list.Add("GUIDField", new KeyValuePair<string, bool>("Guid", false));
+            list.Add("DateTimeField", new KeyValuePair<string, bool>("DateTimeOffset", false));
+
+            return list;
+        }
+
+        private bool DoesTypeMatch(string EntityTypeString, object data)
+        {
+            bool match = false;
+            EntityProperty.EntityPropertyType ept = EntityProperty.StringToType(EntityTypeString);
+
+            switch (ept)
+            {
+                case EntityProperty.EntityPropertyType.String:
+                    match = (data.GetType() == typeof(string));
+                    break;
+                case EntityProperty.EntityPropertyType.Boolean:
+                    match = (data.GetType() == typeof(bool));
+                    break;
+                case EntityProperty.EntityPropertyType.Double:
+                    match = (data.GetType() == typeof(double));
+                    break;
+                case EntityProperty.EntityPropertyType.Int32:
+                    match = (data.GetType() == typeof(int));
+                    break;
+                case EntityProperty.EntityPropertyType.Int64:
+                    match = (data.GetType() == typeof(long));
+                    break;
+                case EntityProperty.EntityPropertyType.GUID:
+                    match = (data.GetType() == typeof(Guid));
+                    break;
+                case EntityProperty.EntityPropertyType.DateTime:
+                    match = (data.GetType() == typeof(DateTimeOffset));
+                    break;
+            }
+
+            return match;
+        }
+
+
+        /// <summary>
+        /// Validates that the field data types in Azue are properly restored.  
+        /// </summary>
+        [Fact]
+        public void TestBackupTableTypes()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
+
+            string restoreResult1 = instanceRestore.RestoreTableFromFile(TableNameRestoreTo, FileNamePathTableTypes);
+            int RestoreCount1 = ExtractNextInt(restoreResult1, "Successful;", "entries");
+            Assert.Equal(2, RestoreCount1);
+
+            List<TableEntity> tableQuery = QueryTable(TableNameRestoreTo);
+
+            Dictionary<string, KeyValuePair<string, bool>> ValidationSource = CreateTypesToVerify();
+
+            List<KeyValuePair<string, bool>> ValidationResults = new List<KeyValuePair<string, bool>>();
+
+            List<KeyValuePair<string, object>> properties = tableQuery.ElementAt(0).ToList();
+            foreach (KeyValuePair<string, object>field in properties)
+            {
+                KeyValuePair<string, bool> field2;
+                if (ValidationSource.TryGetValue(field.Key, out field2))
+                {
+                    ValidationResults.Add(new KeyValuePair<string, bool>(field2.Key, DoesTypeMatch(field2.Key, field.Value)));
+                }
+            }
+                
+            foreach (KeyValuePair<string, bool>item in ValidationResults)
+            {
+                Assert.True(item.Value, $"Table Entity Type of {item.Key} failed.");
+            }
         }
     }
 }

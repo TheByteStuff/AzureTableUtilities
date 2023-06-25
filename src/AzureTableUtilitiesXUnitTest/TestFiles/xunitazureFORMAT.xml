@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Map>
+  <add ConnectionName="AzureStorageConfigConnection" ConnectionValue="..."/>
+  <add ConnectionName="AzureStorageConfigConnection2" ConnectionValue="..."/>  
+  <add ConnectionName="AzureStorageConfigConnection_ALT1" ConnectionValue="..."/>  
+  <add ConnectionName="AzureStorageConfigConnection_ALT2" ConnectionValue="..."/>  
+  <add ConnectionName="AzureBlobStorageConfigConnection" ConnectionValue="..."/>  
+</Map>

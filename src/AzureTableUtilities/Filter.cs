@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using CosmosTable = Microsoft.Azure.Cosmos.Table;
 
 namespace TheByteStuff.AzureTableUtilities
 {
@@ -31,13 +30,18 @@ namespace TheByteStuff.AzureTableUtilities
             this.Option = Option;
             this.Comparison = Comparison;
             this.Value = Value;
-            this.Join = Join;
+            this._Join = Join.ToLower().Trim();
         }
 
         /// <summary>
         /// The value to use to join the current Filter with the prior Filter
         /// </summary>
-        public string Join { get; set; } = "";
+        public string Join {
+            get { return this._Join; }
+            set { this._Join = (value==null ? null : value.ToLower().Trim()); }
+        }
+
+        private string _Join = "";
 
         /// <summary>
         /// The Option for this filter, ex: PartitionKey
@@ -159,11 +163,11 @@ namespace TheByteStuff.AzureTableUtilities
         /// <summary>
         /// Tests if the string value passed is a valid Join operator for the filters.
         /// </summary>
-        /// <param name="join">Valid values are empty string, AND, OR</param>
+        /// <param name="join">Valid values are empty string, and, or</param>
         /// <returns>bool</returns>
         public static bool IsValidJoin(string join)
         {
-            if ((join!=null) && (join.Equals("") || join.Equals("AND") || join.Equals("OR")))
+            if ((join!=null) && (join.Equals("") || join.Equals("and") || join.Equals("or")))
             {
                 return true;
             }
@@ -184,18 +188,18 @@ namespace TheByteStuff.AzureTableUtilities
             {
                 case "=":
                 case "==":
-                case "Equal": return CosmosTable.QueryComparisons.Equal;
+                case "Equal": return "eq"; 
                 case "<>":
                 case "!=":
-                case "NotEqual": return CosmosTable.QueryComparisons.NotEqual;
+                case "NotEqual": return "ne"; 
                 case ">":
-                case "GreaterThan": return CosmosTable.QueryComparisons.GreaterThan;
+                case "GreaterThan": return "gt"; 
                 case ">=":
-                case "GreaterThanOrEqual": return CosmosTable.QueryComparisons.GreaterThanOrEqual;
+                case "GreaterThanOrEqual": return "ge";
                 case "<":
-                case "LessThan": return CosmosTable.QueryComparisons.LessThan;
+                case "LessThan": return "lt";
                 case "<=":
-                case "LessThanOrEqual": return CosmosTable.QueryComparisons.LessThanOrEqual;
+                case "LessThanOrEqual": return "le";
                 default: return "";
             }
         }
@@ -220,24 +224,24 @@ namespace TheByteStuff.AzureTableUtilities
                 switch (filter.Option)
                 {
                     case PartitionKey:
-                        filtertemp = CosmosTable.TableQuery.GenerateFilterCondition(PartitionKey, Filter.ConvertComparisonToOperator(filter.Comparison), filter.Value);
+                        filtertemp = $"PartitionKey {Filter.ConvertComparisonToOperator(filter.Comparison)} '{filter.Value}'";
                         break;
                     case RowKey:
-                        filtertemp = CosmosTable.TableQuery.GenerateFilterCondition(RowKey, Filter.ConvertComparisonToOperator(filter.Comparison), filter.Value);
+                        filtertemp = $"RowKey {Filter.ConvertComparisonToOperator(filter.Comparison)} '{filter.Value}'"; // CosmosTable.TableQuery.GenerateFilterCondition(RowKey, Filter.ConvertComparisonToOperator(filter.Comparison), filter.Value);
                         break;
                     case Timestamp:
-                        filtertemp = CosmosTable.TableQuery.GenerateFilterConditionForDate(Timestamp, Filter.ConvertComparisonToOperator(filter.Comparison), DateTimeOffset.Parse(filter.Value));
+                        filtertemp = $"Timestamp {Filter.ConvertComparisonToOperator(filter.Comparison)} datetime'{DateTimeOffset.Parse(filter.Value)}'";
                         break;
                     default: throw new Exception(String.Format("Unknown filter option {0}", filter.Option));
                 }
                 if (concat)
                 {
-                    string joinValue = CosmosTable.TableOperators.And;
+                    string joinValue = " and ";
                     if ("OR".Equals(filter.Join.ToUpper()))
                     {
-                        joinValue = CosmosTable.TableOperators.Or;
+                        joinValue = " or ";
                     }
-                    filterout = CosmosTable.TableQuery.CombineFilters(filterout, joinValue, filtertemp);
+                    filterout = $"{filterout} {joinValue} {filtertemp}";
                 }
                 else
                 {

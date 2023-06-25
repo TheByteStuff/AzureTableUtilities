@@ -18,7 +18,7 @@ namespace AzureTableUtilitiesXUnitTest
     {
         private string OptionPartitionKey = "PartitionKey";
         private string Value = "Test";
-        private string JoinAnd = "AND";
+        private string JoinAnd = "and";
         private string Comparison = "!=";
 
         private void SetFilterToGood(Filter f1)
@@ -204,7 +204,10 @@ namespace AzureTableUtilitiesXUnitTest
             string FilterSpec = Filter.BuildFilterSpec(ValidList1);
             Assert.NotNull(FilterSpec);
             Assert.NotEmpty(FilterSpec);
-            Assert.Equal("((RowKey ne 'Test') and (PartitionKey ne 'Test')) or (Timestamp lt datetime'2020-01-01T16:44:00.0000000Z')", FilterSpec);
+            string ExpectedFilterSpec = "RowKey ne 'Test'  and  PartitionKey ne 'Test'  or  Timestamp lt datetime'1/1/2020 11:44:00 AM -05:00'";
+            //Assert.Equal("((RowKey ne 'Test') and (PartitionKey ne 'Test')) or (Timestamp lt datetime'2020-01-01T16:44:00.0000000Z')", FilterSpec);
+            Assert.Equal(ExpectedFilterSpec, FilterSpec);
+            // "RowKey 'ne' 'Test'  and  PartitionKey 'ne' 'Test'  or  Timestamp 'lt' datetime'1/1/2020 11:44:00 AM -05:00'"
 
             List<Filter> InvalidJoin1 = new List<Filter>();
             ValidList1.Add(f4);

@@ -1,6 +1,7 @@
 ﻿using System;
 
-using Microsoft.Azure.Cosmos.Table;
+//using Microsoft.Azure.Cosmos.Table;
+using Azure.Data.Tables;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 
@@ -18,7 +19,7 @@ namespace TheByteStuff.AzureTableUtilities
             this.jsonConverter = new DynamicTableEntityJsonConverter(excludedProperties);
         }
 
-        public string Serialize(DynamicTableEntity entity)
+        public string Serialize(TableEntity entity)
         {
             string str;
             if (entity != null)
@@ -31,14 +32,14 @@ namespace TheByteStuff.AzureTableUtilities
             return str;
         }
 
-        public DynamicTableEntity Deserialize(string serializedEntity)
+        public TableEntity Deserialize(string serializedEntity)
         {
-            DynamicTableEntity local;
+            TableEntity local;
             if (serializedEntity != null)
-                local = JsonConvert.DeserializeObject<DynamicTableEntity>(serializedEntity, new JsonConverter[1] {(JsonConverter) this.jsonConverter});
+                local = JsonConvert.DeserializeObject<TableEntity>(serializedEntity, new JsonConverter[1] { (JsonConverter)this.jsonConverter });
             else
                 local = null;
-            return (DynamicTableEntity)local;
+            return (TableEntity)local;
         }
     }
 }
