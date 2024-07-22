@@ -38,6 +38,7 @@ Suggestions or donations are both appreciated and welcome can be made by using t
 
 Version History
 
++ v6.1.0 - Correct problem with Timestamp filter, changed literal type from DateTimeOffset to DateTime
 + v6.0.0 - ** Backup/Restore is NOT compatible with prior versions **   Upgrade from Microsoft.Azure.Cosmos.Table to Azure.Data.Table.   The Microsoft.Azure.Cosmos.Table library was deprecated on 3/31/2023.  The Azure.Data.Table API (TableEntity) required a change to retain proper data typing of Int32/Int64 during serlization and is not compatible with the prior version of the customized DynamicTableEntityJsonConverter/Serializer.  As a result, backup files created with prior versions are not compatible to be restored with this release.  Similarly, backups taken with this release may not be restored under prior versions.  It is possible to convert a prior file version to work with the new serialization.  At this time, no tool is being offered to do so.
 + v5.6.2-pre - beta with 4.6.2 as a code base and including Cosmos Table 2.0.0 Preview
 + v5.6.1-pre - beta with 4.6.1 as a code base and including Cosmos Table 2.0.0 Preview
