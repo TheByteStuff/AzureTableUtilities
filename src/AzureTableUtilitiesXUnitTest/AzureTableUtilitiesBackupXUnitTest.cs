@@ -208,6 +208,35 @@ namespace AzureTableUtilitiesXUnitTest
 
 
         [Fact]
+        public void TestBackupToBlobTimestampFilter()
+        {
+            BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+            CopyAzureTables instanceCopy = new CopyAzureTables(AzureStorageConfigConnection);
+            DeleteAzureTables instanceDelete = new DeleteAzureTables(AzureStorageConfigConnection);
+            RestoreAzureTables instanceRestore = new RestoreAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);
+
+            InitializeTables(instanceDelete, instanceRestore, FileNamePathThatExists_SystemLogs);
+
+            List<Filter> Filters2 = new List<Filter>();
+            Filters2.Add(new Filter("Timestamp", "LessThan", "2024-08-01T12:00:00"));
+
+            string copySetup = instanceCopy.CopyTableToTable(TableNameFrom, TableNameTo, 30, Filters2);
+            int InitialRowCount = ExtractNextInt(copySetup, "total records");
+
+
+            string backupToBlob = instanceBackup.BackupTableToBlob(TableNameFrom, BlobRoot, WorkingDirectory, true, true, 10, 10, Filters2);
+            int BackupRowCount = ExtractNextInt(backupToBlob, "total records");
+
+            //Need to restore to confirm
+            string restoreResult = instanceRestore.RestoreTableFromBlob(TableNameRestoreTo, TableNameFrom, BlobRoot, WorkingDirectory, ExtractFileName(backupToBlob), 30);
+
+            string copyVerify = instanceCopy.CopyTableToTable(TableNameRestoreTo, TableNameTo2, 30);
+            int VerifyRowCount = ExtractNextInt(copyVerify, "total records");
+            Assert.Equal(InitialRowCount, VerifyRowCount);
+        }
+
+
+        [Fact]
         public void TestBackupToBlobDirectFilters()
         {
             BackupAzureTables instanceBackup = new BackupAzureTables(AzureStorageConfigConnection, AzureBlobStorageConfigConnection);

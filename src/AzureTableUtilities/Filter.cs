@@ -206,6 +206,7 @@ namespace TheByteStuff.AzureTableUtilities
 
         /// <summary>
         /// Build the "Where" clause for the query call of the table being extracted.
+        /// 07/22/2024 - Fix Timestamp filter to be of type DateTime insteas of DateTimeOffset
         /// </summary>
         /// <param name="filters"></param>
         /// <returns></returns>
@@ -230,7 +231,7 @@ namespace TheByteStuff.AzureTableUtilities
                         filtertemp = $"RowKey {Filter.ConvertComparisonToOperator(filter.Comparison)} '{filter.Value}'"; // CosmosTable.TableQuery.GenerateFilterCondition(RowKey, Filter.ConvertComparisonToOperator(filter.Comparison), filter.Value);
                         break;
                     case Timestamp:
-                        filtertemp = $"Timestamp {Filter.ConvertComparisonToOperator(filter.Comparison)} datetime'{DateTimeOffset.Parse(filter.Value)}'";
+                        filtertemp = $"Timestamp {Filter.ConvertComparisonToOperator(filter.Comparison)} DateTime'{filter.Value}'";
                         break;
                     default: throw new Exception(String.Format("Unknown filter option {0}", filter.Option));
                 }

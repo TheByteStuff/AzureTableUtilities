@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <DebugType>Full</DebugType>
     <RootNamespace>TheByteStuff.AzureTableUtilities</RootNamespace>
-    <Version>6.0.0</Version>
+    <Version>6.1.0</Version>
     <Company>The Byte Stuff, LLC</Company>
     <Authors>The Byte Stuff, LLC</Authors>
     <Description>Backup, Copy, Delete and Restore options for use with Azure Tables.  An alternative to tools such as AZCopy.
@@ -31,23 +31,22 @@ Personal and commercial use of this software is free; however, a donation is app
 Code for a command line executable along with sample Docker build is available on GitHub -- https://github.com/TheByteStuff/AzureTableBackupRestore
 
 Suggestions or donations are both appreciated and welcome can be made by using the "Contact" tab at https://www.thebytestuff.com/Contact?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities
+v6.1.0 - Correct problem with Timestamp filter, changed literal type from DateTimeOffset to DateTime
 v6.0.0 - ** Backup/Restore is NOT compatible with prior versions **   Upgrade from  Microsoft.Azure.Cosmos.Table library to Azure.Data.Table.   The Microsoft.Azure.Cosmos.Table library was deprecated on 3/31/2023.  The Azure.Data.Table API (TableEntity) required a change to retain proper data typing of Int32/Int64 during serlization and is not compatible with the prior version of the customized DynamicTableEntityJsonConverter/Serializer.  As a result, backup files created with prior versions are not compatible to be restored with this release.  Similarly, backups taken with this release may not be restored under prior versions.  It is possible to convert a prior file version to work with the new serialization.  At this time, no tool is being offered to do so.
 </Description>
-    <Copyright>2020 -2023</Copyright>
+    <Copyright>2020 -2024</Copyright>
     <PackageProjectUrl>https://www.thebytestuff.com/azure-tables-backup-documentation?utm_source=nuget&amp;amp;utm_medium=www&amp;amp;utm_campaign=AzureTableUtilities</PackageProjectUrl>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageLicenseUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/LICENSE</PackageLicenseUrl>
     <PackageIconUrl>https://github.com/TheByteStuff/AzureTableUtilities/blob/master/src/AzureTableUtilities/CardFront_Clip.png</PackageIconUrl>
-    <PackageReleaseNotes>** Backup/Restore is NOT compatible with prior versions **   
-
-Upgrade from Microsoft.Azure.Cosmos.Table to Azure.Data.Table.   The Microsoft.Azure.Cosmos.Table library was deprecated on 3/31/2023.  The Azure.Data.Table API supports serialization directly and has different typing of serialized data than achived through the customized DynamicTableEntityJsonConverter/Serializer.  Backup files created with prior versions are not compatible to be restored with this release.  Backups taken with this release may not be restored under prior versions.  It is possible to convert a prior file version to work with the new serialization.</PackageReleaseNotes>
-    <AssemblyVersion>6.0.0.0</AssemblyVersion>
+    <PackageReleaseNotes>Correct problem with Timestamp filter, changed literal type from DateTimeOffset to DateTime.</PackageReleaseNotes>
+    <AssemblyVersion>6.1.0.0</AssemblyVersion>
     <RepositoryUrl>https://github.com/TheByteStuff/AzureTableUtilities</RepositoryUrl>
     <PackageTags>AzureTables AZCopy Backup Copy Delete Restore</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PackageId>TheByteStuff.AzureTableUtilities</PackageId>
-    <FileVersion>6.0.0.0</FileVersion>
+    <FileVersion>6.1.0.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

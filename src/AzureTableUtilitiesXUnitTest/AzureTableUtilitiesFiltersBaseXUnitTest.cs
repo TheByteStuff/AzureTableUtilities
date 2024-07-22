@@ -204,7 +204,7 @@ namespace AzureTableUtilitiesXUnitTest
             string FilterSpec = Filter.BuildFilterSpec(ValidList1);
             Assert.NotNull(FilterSpec);
             Assert.NotEmpty(FilterSpec);
-            string ExpectedFilterSpec = "RowKey ne 'Test'  and  PartitionKey ne 'Test'  or  Timestamp lt datetime'1/1/2020 11:44:00 AM -05:00'";
+            string ExpectedFilterSpec = "RowKey ne 'Test'  and  PartitionKey ne 'Test'  or  Timestamp lt DateTime'2020-01-01 11:44:00'";
             //Assert.Equal("((RowKey ne 'Test') and (PartitionKey ne 'Test')) or (Timestamp lt datetime'2020-01-01T16:44:00.0000000Z')", FilterSpec);
             Assert.Equal(ExpectedFilterSpec, FilterSpec);
             // "RowKey 'ne' 'Test'  and  PartitionKey 'ne' 'Test'  or  Timestamp 'lt' datetime'1/1/2020 11:44:00 AM -05:00'"
