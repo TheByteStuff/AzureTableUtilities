@@ -13,3 +13,5 @@ src/AzureTableUtilitiesXUnitTest/bin
 src/AzureTableUtilitiesXUnitTest/obj
 src/TestResults
 
+/src/AzureTableUtilitiesCLI/bin
+/src/AzureTableUtilitiesCLI/obj

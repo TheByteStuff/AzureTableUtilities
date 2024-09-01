@@ -1,20 +1,12 @@
-﻿using System;
-using System.IO;
-using System.Reflection;
-using System.Configuration;
-using System.Security;
-using System.Collections.Generic;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Binder;
-using Microsoft.Extensions.Configuration.FileExtensions;
-using Microsoft.Extensions.Configuration.Json;
-using Xunit;
-using System.Linq;
-
-using Azure;
+﻿using Azure;
 using Azure.Data.Tables;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using TheByteStuff.AzureTableUtilities;
-using TheByteStuff.AzureTableUtilities.Exceptions;
+using Xunit;
 
 
 namespace AzureTableUtilitiesXUnitTest

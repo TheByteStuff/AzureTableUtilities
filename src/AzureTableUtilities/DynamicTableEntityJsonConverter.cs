@@ -1,10 +1,9 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure.Data.Tables;
 
 namespace TheByteStuff.AzureTableUtilities
@@ -12,7 +11,7 @@ namespace TheByteStuff.AzureTableUtilities
     /// <summary>
     ///  Based on classes from https://www.nuget.org/packages/DynamicTableEntityJsonSerializer/1.0.0
     /// </summary>
-    class DynamicTableEntityJsonConverter : JsonConverter
+    class DynamicTableEntityJsonConverter : JsonConverter<TableEntity>
     {
         private const int EntityPropertyIndex = 0;
         private const int EntityPropertyEdmTypeIndex = 1;
@@ -25,44 +24,44 @@ namespace TheByteStuff.AzureTableUtilities
             this.excludedProperties = excludedProperties;
         }
 
-        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        public override void Write(Utf8JsonWriter writer, TableEntity value, JsonSerializerOptions options)
         {
             if (value == null)
                 return;
             writer.WriteStartObject();
-            DynamicTableEntityJsonConverter.WriteJsonProperties(writer, (TableEntity)value, this.excludedProperties);
+            WriteJsonProperties(writer, value, this.excludedProperties);
             writer.WriteEndObject();
         }
 
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        public override TableEntity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            if (reader.TokenType == JsonToken.Null)
-                return (object)null;
+            if (reader.TokenType == JsonTokenType.Null)
+                return null;
+
             TableEntity dynamicTableEntity = new TableEntity();
 
-            using (List<JProperty>.Enumerator enumerator = JObject.Load(reader).Properties().ToList<JProperty>().GetEnumerator())
+            using (JsonDocument document = JsonDocument.ParseValue(ref reader))
             {
-                while (enumerator.MoveNext())
+                foreach (JsonProperty property in document.RootElement.EnumerateObject())
                 {
-                    JProperty current = enumerator.Current;
-                    if (string.Equals(current.Name, "PartitionKey", StringComparison.Ordinal))
-                        dynamicTableEntity.PartitionKey = ((object)current.Value).ToString();
-                    else if (string.Equals(current.Name, "RowKey", StringComparison.Ordinal))
-                        dynamicTableEntity.RowKey = ((object)current.Value).ToString();
-                    else if (string.Equals(current.Name, "Timestamp", StringComparison.Ordinal))
-                        dynamicTableEntity.Timestamp = (DateTimeOffset)current.Value.ToObject<DateTimeOffset>(serializer);
-                    else if (string.Equals(current.Name, "ETag", StringComparison.Ordinal))
+                    if (string.Equals(property.Name, "PartitionKey", StringComparison.Ordinal))
+                        dynamicTableEntity.PartitionKey = property.Value.GetString();
+                    else if (string.Equals(property.Name, "RowKey", StringComparison.Ordinal))
+                        dynamicTableEntity.RowKey = property.Value.GetString();
+                    else if (string.Equals(property.Name, "Timestamp", StringComparison.Ordinal))
+                        dynamicTableEntity.Timestamp = property.Value.GetDateTimeOffset();
+                    else if (string.Equals(property.Name, "ETag", StringComparison.Ordinal))
                     {
-                        dynamicTableEntity.ETag = new Azure.ETag(current.Value.ToString());
+                        dynamicTableEntity.ETag = new Azure.ETag(property.Value.GetString());
                     }
                     else
                     {
-                        KeyValuePair<string, object> data = DynamicTableEntityJsonConverter.CreateKeyValue(serializer, current);
+                        KeyValuePair<string, object> data = CreateKeyValue(property);
                         dynamicTableEntity.Add(data.Key, data.Value);
                     }
                 }
             }
-            return (object)dynamicTableEntity;
+            return dynamicTableEntity;
         }
 
         public override bool CanConvert(Type objectType)
@@ -71,133 +70,124 @@ namespace TheByteStuff.AzureTableUtilities
         }
 
         private static void WriteJsonProperties(
-          JsonWriter writer,
+          Utf8JsonWriter writer,
           TableEntity entity,
           List<string> excludedProperties = null)
         {
             if (entity == null)
                 return;
-            writer.WritePropertyName("PartitionKey");
-            writer.WriteValue(entity.PartitionKey);
-            writer.WritePropertyName("RowKey");
-            writer.WriteValue(entity.RowKey);
-            writer.WritePropertyName("Timestamp");
-            writer.WriteValue(entity.Timestamp);
-            //writer.WritePropertyName("ETag");
-            //writer.WriteValue(entity.ETag);
-            //int i= 0;
+            writer.WriteString("PartitionKey", entity.PartitionKey);
+            writer.WriteString("RowKey", entity.RowKey);
+            writer.WriteString("Timestamp", entity.Timestamp?.ToString("o"));
+
             for (int j = 0; j < entity.Count; j++)
             {
-                string ValueType = entity.ElementAt(j).Value.GetType().Name;
-
+                string valueType = entity.ElementAt(j).Value.GetType().Name;
 
                 if (excludedKeys.Contains(entity.ElementAt(j).Key))
                 {
-
+                    continue;
                 }
                 else
                 {
-                    EntityProperty ep = new EntityProperty(entity.ElementAt(j), EntityProperty.StringToType(ValueType)); //  EntityProperty.EntityPropertyType.String);
-                    DynamicTableEntityJsonConverter.WriteJsonProperty(writer, entity.ElementAt(j), EntityProperty.StringToType(ValueType));
+                    EntityProperty ep = new EntityProperty(entity.ElementAt(j), EntityProperty.StringToType(valueType));
+                    WriteJsonProperty(writer, entity.ElementAt(j), EntityProperty.StringToType(valueType));
                 }
             }
-
         }
 
         private static void WriteJsonProperty(
-          JsonWriter writer,
-            KeyValuePair<string, object> property,
-            EntityProperty.EntityPropertyType type)
+          Utf8JsonWriter writer,
+          KeyValuePair<string, object> property,
+          EntityProperty.EntityPropertyType type)
         {
-            //https://www.newtonsoft.com/json/help/html/T_Newtonsoft_Json_JsonToken.htm
             if (string.IsNullOrWhiteSpace(property.Key) || property.Value == null)
                 return;
+
             switch ((int)type)
             {
                 case 0:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.String);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.String);
                     break;
                 case 1:
-                    throw new NotSupportedException(string.Format((IFormatProvider)CultureInfo.InvariantCulture, "Unsupported EntityProperty.PropertyType:{0} detected during serialization.", type));
+                    throw new NotSupportedException(string.Format(CultureInfo.InvariantCulture, "Unsupported EntityProperty.PropertyType:{0} detected during serialization.", type));
                 case 2:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.Boolean);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.Boolean);
                     break;
                 case 3:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.DateTime);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.DateTime);
                     break;
                 case 4:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.Double);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.Double);
                     break;
                 case 5:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.GUID);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.GUID);
                     break;
                 case 6:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.Int32);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.Int32);
                     break;
                 case 7:
-                    DynamicTableEntityJsonConverter.WriteJsonPropertyWithEdmType(writer, property.Key, (object)property.Value, EntityProperty.EntityPropertyType.Int64);
+                    WriteJsonPropertyWithEdmType(writer, property.Key, property.Value, EntityProperty.EntityPropertyType.Int64);
                     break;
                 default:
-                    throw new NotSupportedException(string.Format((IFormatProvider)CultureInfo.InvariantCulture, "Unsupported EntityProperty.PropertyType:{0} detected during serialization.", type));
+                    throw new NotSupportedException(string.Format(CultureInfo.InvariantCulture, "Unsupported EntityProperty.PropertyType:{0} detected during serialization.", type));
             }
         }
 
         private static void WriteJsonPropertyWithEdmType(
-          JsonWriter writer,
+          Utf8JsonWriter writer,
           string key,
           object value,
-          EntityProperty.EntityPropertyType TableEntityType)
+          EntityProperty.EntityPropertyType tableEntityType)
         {
             writer.WritePropertyName(key);
             writer.WriteStartObject();
             writer.WritePropertyName(key);
-            writer.WriteValue(value);
+            writer.WriteStringValue(value.ToString());
             writer.WritePropertyName("EdmType");
-            writer.WriteValue(TableEntityType.ToString());
+            writer.WriteStringValue(tableEntityType.ToString());
             writer.WriteEndObject();
         }
 
-        private static KeyValuePair<string, object> CreateKeyValue(
-          JsonSerializer serializer,
-          JProperty property)
+        private static KeyValuePair<string, object> CreateKeyValue(JsonProperty property)
         {
-            if (property == null)
+            if (property.Value.ValueKind == JsonValueKind.Null)
                 return new KeyValuePair<string, object>();
-            List<JProperty> list = JObject.Parse(((object)property.Value).ToString()).Properties().ToList<JProperty>();
-            EntityProperty.EntityPropertyType edmType = (EntityProperty.EntityPropertyType)Enum.Parse(typeof(EntityProperty.EntityPropertyType), ((object)list[1].Value).ToString(), true);
-            //EntityProperty entityProperty = new EntityProperty(new KeyValuePair<string, object>("test", 123), edmType);
-            KeyValuePair<string, object> KVP = new KeyValuePair<string, object>();
+
+            JsonElement element = property.Value;
+            EntityProperty.EntityPropertyType edmType = (EntityProperty.EntityPropertyType)Enum.Parse(typeof(EntityProperty.EntityPropertyType), element.GetProperty("EdmType").GetString(), true);
+
+            KeyValuePair<string, object> kvp = new KeyValuePair<string, object>();
             switch ((int)edmType)
             {
                 case 0:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, (string)list[0].Value.ToObject<string>(serializer));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetString());
                     break;
                 case 1:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, (byte[])list[0].Value.ToObject<byte[]>(serializer));
-                    //entityProperty = EntityProperty.GeneratePropertyForByteArray((byte[])list[0].Value.ToObject<byte[]>(serializer));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetBytesFromBase64());
                     break;
                 case 2:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, new bool?((bool)list[0].Value.ToObject<bool>(serializer)));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetBoolean());
                     break;
                 case 3:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, new DateTimeOffset?((DateTimeOffset)list[0].Value.ToObject<DateTimeOffset>(serializer)));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetDateTimeOffset());
                     break;
                 case 4:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, new double?((double)list[0].Value.ToObject<double>(serializer)));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetDouble());
                     break;
                 case 5:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, new Guid?((Guid)list[0].Value.ToObject<Guid>(serializer)));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetGuid());
                     break;
                 case 6:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, new int?((int)list[0].Value.ToObject<int>(serializer)));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetInt32());
                     break;
                 case 7:
-                    KVP = new KeyValuePair<string, object>(list[0].Name, new long?((long)list[0].Value.ToObject<long>(serializer)));
+                    kvp = new KeyValuePair<string, object>(property.Name, element.GetProperty(property.Name).GetInt64());
                     break;
                 default:
-                    throw new NotSupportedException(string.Format((IFormatProvider)CultureInfo.InvariantCulture, "Unsupported EntityProperty.PropertyType:{0} detected during deserialization.", (object)edmType));
+                    throw new NotSupportedException(string.Format(CultureInfo.InvariantCulture, "Unsupported EntityProperty.PropertyType:{0} detected during deserialization.", edmType));
             }
-            return KVP;
+            return kvp;
         }
     }
 }

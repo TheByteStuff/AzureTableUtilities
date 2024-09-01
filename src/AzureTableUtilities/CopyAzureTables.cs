@@ -1,30 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Configuration;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Security;
-using System.Net.Http;
-
-using AZStorage = Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
-using AZBlob = Microsoft.Azure.Storage.Blob;
-using Microsoft.Azure.Storage.Core;
-using Microsoft.Azure.Storage.File;
-
+﻿using Azure;
 using Azure.Data.Tables;
 using Azure.Data.Tables.Models;
-using Azure;
-
-using Newtonsoft.Json;
-
-using TheByteStuff.AzureTableUtilities.Exceptions;
-
+using Azure.Storage.Blobs;
+using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Security;
+using System.Text;
+using TheByteStuff.AzureTableUtilities.Exceptions;
 
 namespace TheByteStuff.AzureTableUtilities
 {
@@ -33,10 +16,9 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class CopyAzureTables
     {
-        //private SecureString AzureSourceTableConnection = new SecureString();
-        //private SecureString AzureDestinationTableConnection = new SecureString();
-        private StringBuilder AzureSourceTableConnection = new StringBuilder();
-        private StringBuilder AzureDestinationTableConnection = new StringBuilder();
+
+        private TableServiceClient sourceTableServiceClient;
+        private TableServiceClient destinationTableServiceClient;
         /// <summary>
         /// Constructor, sets same connection spec for both the Source and Destination Azure Tables.
         /// </summary>
@@ -67,16 +49,8 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
 
-            foreach (char c in AzureSourceTableConnection.ToCharArray())
-            {
-                //this.AzureSourceTableConnection.AppendChar(c);
-                this.AzureSourceTableConnection.Append(c);
-            }
-            foreach (char c in AzureDestinationTableConnection.ToCharArray())
-            {
-                //this.AzureDestinationTableConnection.AppendChar(c);
-                this.AzureDestinationTableConnection.Append(c);
-            }
+            sourceTableServiceClient = new TableServiceClient(AzureSourceTableConnection);
+            destinationTableServiceClient = new TableServiceClient(AzureDestinationTableConnection);
         }
 
         /// <summary>
@@ -133,12 +107,9 @@ namespace TheByteStuff.AzureTableUtilities
 
             try
             {
-                TableServiceClient clientSource = new TableServiceClient(AzureSourceTableConnection.ToString());
+                TableItem TableDest = destinationTableServiceClient.CreateTableIfNotExists(DestinationTableName);
 
-                TableServiceClient clientDestination = new TableServiceClient(AzureDestinationTableConnection.ToString());
-                TableItem TableDest = clientDestination.CreateTableIfNotExists(DestinationTableName);
-
-                Pageable<TableEntity> queryResultsFilter = clientSource.GetTableClient(SourceTableName).Query<TableEntity>(filter: Filter.BuildFilterSpec(filters), maxPerPage: BatchSize);
+                Pageable<TableEntity> queryResultsFilter = sourceTableServiceClient.GetTableClient(SourceTableName).Query<TableEntity>(filter: Filter.BuildFilterSpec(filters), maxPerPage: BatchSize);
                 // Set Timeout?
 
                 BatchCount = 0;
@@ -157,7 +128,7 @@ namespace TheByteStuff.AzureTableUtilities
                         }
                         else
                         {
-                            Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                            Response<IReadOnlyList<Response>> response = destinationTableServiceClient.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                             TotalRecordCountOut = TotalRecordCountOut + Batch.Count;
                             Batch = new List<TableTransactionAction>();
 
@@ -171,7 +142,7 @@ namespace TheByteStuff.AzureTableUtilities
                         {
                             try
                             {
-                                Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                                Response<IReadOnlyList<Response>> response = destinationTableServiceClient.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                                 TotalRecordCountOut = TotalRecordCountOut + Batch.Count;
 
                                 Batch = new List<TableTransactionAction>();
@@ -188,7 +159,7 @@ namespace TheByteStuff.AzureTableUtilities
                 }
                 if (!BatchWritten)
                 {
-                    Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                    Response<IReadOnlyList<Response>> response = destinationTableServiceClient.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                     TotalRecordCountOut = TotalRecordCountOut + Batch.Count;
                     Batch = new List<TableTransactionAction>();
                     PartitionKey = String.Empty;
@@ -227,7 +198,7 @@ namespace TheByteStuff.AzureTableUtilities
         public string CopyAllTables(int TimeoutSeconds = 30, List<Filter> filters = default(List<Filter>))
         {
             //if (IsEqualTo(AzureSourceTableConnection.ToString(), AzureDestinationTableConnection.ToString()))
-            if (AzureSourceTableConnection.ToString().Equals(AzureDestinationTableConnection.ToString()))
+            if (sourceTableServiceClient.Uri.Equals(destinationTableServiceClient.Uri))
             {
                 throw new ParameterSpecException("Source and Destination Connection specs can not match for CopyAll.");
             }
@@ -240,7 +211,7 @@ namespace TheByteStuff.AzureTableUtilities
             StringBuilder BackupResults = new StringBuilder();
             try
             {
-                List<string> TableNames = Helper.GetTableNames(AzureSourceTableConnection.ToString());
+                List<string> TableNames = Helper.GetTableNames(sourceTableServiceClient);
                 if (TableNames.Count > 0)
                 {
                     foreach (string TableName in TableNames)

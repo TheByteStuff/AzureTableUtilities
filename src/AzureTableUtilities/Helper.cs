@@ -48,13 +48,12 @@ namespace TheByteStuff.AzureTableUtilities
         /// <summary>
         /// Return a list of table names for the given azure connection.
         /// </summary>
-        /// <param name="AzureTableConnection"></param>
+        /// <param name="client"></param>
         /// <returns></returns>
-        public static List<string> GetTableNames(String AzureTableConnection)
+        public static List<string> GetTableNames(TableServiceClient client)
         {
             List<string> TableNames = new List<string>();
 
-            TableServiceClient client = new TableServiceClient(AzureTableConnection.ToString());
             Pageable<TableItem> result = client.Query();
             foreach (TableItem Table in result)
             {

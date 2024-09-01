@@ -1,26 +1,15 @@
-﻿using System;
-using System.Configuration;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Security;
-
-using AZStorage = Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
-using AZBlob = Microsoft.Azure.Storage.Blob;
-using Microsoft.Azure.Storage.Core;
-using Microsoft.Azure.Storage.File;
-
+﻿using Azure;
 using Azure.Data.Tables;
 using Azure.Data.Tables.Models;
-using Azure;
-
-using Newtonsoft.Json;
-
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text;
 using TheByteStuff.AzureTableUtilities.Exceptions;
 
 namespace TheByteStuff.AzureTableUtilities
@@ -30,36 +19,37 @@ namespace TheByteStuff.AzureTableUtilities
     /// </summary>
     public class RestoreAzureTables
     {
-        //private SecureString AzureTableConnectionSpec = new SecureString();
-        //private SecureString AzureBlobConnectionSpec = new SecureString();
-        private string AzureTableConnectionSpec = "";
-        private string AzureBlobConnectionSpec = "";
+        private TableServiceClient tableServiceClient;
+        private BlobServiceClient blobServiceClient;
+
 
         /// <summary>
         /// Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
         /// </summary>
-        /// <param name="AzureConnection">Connection string for Azure Table and Blob Connections; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
+        /// <param name="AzureConnection">Connection string for Azure Table and Blob Connections; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
         public RestoreAzureTables(string AzureConnection) : this(AzureConnection, AzureConnection)
         {
-
+            tableServiceClient = new TableServiceClient(AzureConnection);
+            blobServiceClient = new BlobServiceClient(AzureConnection);
         }
 
         /// <summary>
-        /// Constructor, sets same connection spec for both the Azure Tables as well as the Azure Blob storage.
+        /// Directly set the Service Clients
         /// </summary>
-        /// <param name="AzureConnection"></param>
-        /*
-        public RestoreAzureTables(SecureString AzureConnection) : this(AzureConnection, AzureConnection)
+        /// <param name="tableServiceClient"></param>
+        /// <param name="blobServiceClient"></param>
+        public RestoreAzureTables(TableServiceClient tableServiceClient, BlobServiceClient blobServiceClient)
         {
-
+            this.tableServiceClient = tableServiceClient;
+            this.blobServiceClient = blobServiceClient;
         }
-        */
+
 
         /// <summary>
         /// Constructor, allows a different connection spec for Azure Table and Azure Blob storage.
         /// </summary>
-        /// <param name="AzureTableConnection">Connection string for Azure Table Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
-        /// <param name="AzureBlobConnection">Connection string for Azure Blob Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"</param>
+        /// <param name="AzureTableConnection">Connection string for Azure Table Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
+        /// <param name="AzureBlobConnection">Connection string for Azure Blob Connection; ex "AccountName=devstoreaccount1;AccountKey={xxxxxxxxxxx};DefaultEndpointsProtocol=http;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;" </param>
         public RestoreAzureTables(string AzureTableConnection, string AzureBlobConnection)
         {
             if (String.IsNullOrEmpty(AzureTableConnection) || String.IsNullOrEmpty(AzureBlobConnection))
@@ -67,18 +57,8 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ConnectionException(String.Format("Connection spec must be specified."));
             }
 
-            AzureTableConnectionSpec = AzureTableConnection;
-            AzureBlobConnectionSpec= AzureBlobConnection;
-            /*
-            foreach (char c in AzureTableConnection.ToCharArray())
-            {
-                AzureTableConnectionSpec.AppendChar(c);
-            }
-            foreach (char c in AzureBlobConnection.ToCharArray())
-            {
-                AzureBlobConnectionSpec.AppendChar(c);
-            }
-            */
+            tableServiceClient = new TableServiceClient(AzureTableConnection);
+            blobServiceClient = new BlobServiceClient(AzureBlobConnection);
         }
 
         /// <summary>
@@ -151,17 +131,12 @@ namespace TheByteStuff.AzureTableUtilities
                 throw new ParameterSpecException(String.Format("Invalid WorkingDirectory '{0}' specified.", WorkingDirectory));
             }
 
-            if (!AZStorage.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureBlobConnectionSpec).Password, out AZStorage.CloudStorageAccount StorageAccountAZ))
-            {
-                throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-            }
 
             try
-            { 
-                AZBlob.CloudBlobClient ClientBlob = AZBlob.BlobAccountExtensions.CreateCloudBlobClient(StorageAccountAZ);
-                var container = ClientBlob.GetContainerReference(BlobRoot);
+            {
+                var container = blobServiceClient.GetBlobContainerClient(BlobRoot);
                 container.CreateIfNotExists();
-                AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobRoot.ToLower() + "-table-" + OriginalTableName.ToLower());
+                var directory = container.GetBlobClient(BlobRoot.ToLower() + "-table-" + OriginalTableName.ToLower() + "/" + BlobFileName);
 
                 string WorkingFileNamePath = Path.Combine(WorkingDirectory, BlobFileName);
                 string WorkingFileNamePathCompressed = Path.Combine(WorkingDirectory, BlobFileName);
@@ -178,8 +153,9 @@ namespace TheByteStuff.AzureTableUtilities
                     //WorkingFileNamePathCompressed = WorkingFileNamePathCompressed.Replace(".txt", ".7z");
                 }
 
-                AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(BlobFileName);
-                BlobBlock.DownloadToFile(WorkingFileNamePathCompressed, FileMode.Create);
+                var blobClient = container.GetBlobClient(BlobFileName);
+                blobClient.DownloadTo(WorkingFileNamePathCompressed);
+
 
                 //https://www.tutorialspoint.com/compressing-and-decompressing-files-using-gzip-format-in-chash
                 if (Decompress)
@@ -265,8 +241,7 @@ namespace TheByteStuff.AzureTableUtilities
 
             try
             {
-                TableServiceClient clientDestination = new TableServiceClient(AzureTableConnectionSpec.ToString());
-                TableItem TableDest = clientDestination.CreateTableIfNotExists(DestinationTableName);
+                TableItem TableDest = tableServiceClient.CreateTableIfNotExists(DestinationTableName);
 
                 DynamicTableEntityJsonSerializer serializer = new DynamicTableEntityJsonSerializer();
 
@@ -288,7 +263,7 @@ namespace TheByteStuff.AzureTableUtilities
                         }
                         else if (InFileLine.Contains("ProcessingMetaData") && InFileLine.Contains("Footer"))
                         {
-                            footer = JsonConvert.DeserializeObject<TableSpec>(InFileLine);
+                            footer = System.Text.Json.JsonSerializer.Deserialize<TableSpec>(InFileLine);
                             System.Console.WriteLine(String.Format("Footer {0}", InFileLine));
                         }
                         else
@@ -307,7 +282,7 @@ namespace TheByteStuff.AzureTableUtilities
                             {
                                 try
                                 {
-                                    Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                                    Response<IReadOnlyList<Response>> response = tableServiceClient.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                                     Batch = new List<TableTransactionAction>();
                                     PartitionKey = dte2.PartitionKey;
                                     Batch.Add(new TableTransactionAction(TableTransactionActionType.UpsertReplace, dte2));
@@ -324,7 +299,7 @@ namespace TheByteStuff.AzureTableUtilities
                             {
                                 try
                                 {
-                                    Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                                    Response<IReadOnlyList<Response>> response = tableServiceClient.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                                     PartitionKey = String.Empty;
                                     Batch = new List<TableTransactionAction>();
                                     BatchWritten = true;
@@ -345,16 +320,17 @@ namespace TheByteStuff.AzureTableUtilities
                         try
                         {
                             //TableDest.ExecuteBatch(Batch);
-                            Response<IReadOnlyList<Response>> response = clientDestination.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
+                            Response<IReadOnlyList<Response>> response = tableServiceClient.GetTableClient(DestinationTableName).SubmitTransaction(Batch);
                             PartitionKey = String.Empty;
                         }
-                        catch (Exception ex) {
+                        catch (Exception ex)
+                        {
                             throw new RestoreFailedException(String.Format("Table '{0}' restore failed.", DestinationTableName), ex);
                         }
                     }
                 } // using (StreamReader
 
-                if (null==footer)
+                if (null == footer)
                 {
                     throw new RestoreFailedException(String.Format("Table '{0}' restore failed, no footer record found.", DestinationTableName));
                 }
@@ -404,20 +380,12 @@ namespace TheByteStuff.AzureTableUtilities
         {
             try
             {
-                if (!AZStorage.CloudStorageAccount.TryParse(ConfigurationManager.ConnectionStrings["AzureBlobStorageConfigConnection"].ConnectionString, out AZStorage.CloudStorageAccount StorageAccountAZ))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-                }
-
-                AZBlob.CloudBlobClient ClientBlob = AZBlob.BlobAccountExtensions.CreateCloudBlobClient(StorageAccountAZ);
-
-                var container = ClientBlob.GetContainerReference(BlobRoot);
+                BlobContainerClient container = blobServiceClient.GetBlobContainerClient(BlobRoot);
                 container.CreateIfNotExists();
-                AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobDirectoryReference);
 
-                AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(BlockBlobRef);
+                BlobClient blobClient = container.GetBlobClient($"{BlobDirectoryReference}/{BlockBlobRef}");
+                blobClient.DownloadTo(LocalFileName);
 
-                BlobBlock.DownloadToFile(LocalFileName, FileMode.OpenOrCreate);
 
             }
             catch (Exception ex)
@@ -466,27 +434,22 @@ namespace TheByteStuff.AzureTableUtilities
 
             try
             {
-                if (!AZStorage.CloudStorageAccount.TryParse(new System.Net.NetworkCredential("", AzureBlobConnectionSpec).Password, out AZStorage.CloudStorageAccount StorageAccountAZ))
-                {
-                    throw new ConnectionException("Can not connect to CloudStorage Account.  Verify connection string.");
-                }
 
-                AZBlob.CloudBlobClient ClientBlob = AZBlob.BlobAccountExtensions.CreateCloudBlobClient(StorageAccountAZ);
-                var container = ClientBlob.GetContainerReference(BlobRoot);
+                BlobContainerClient container = blobServiceClient.GetBlobContainerClient(BlobRoot);
                 container.CreateIfNotExists();
-                AZBlob.CloudBlobDirectory directory = container.GetDirectoryReference(BlobRoot.ToLower() + "-table-" + OriginalTableName.ToLower());
+                BlobClient blobClient = container.GetBlobClient($"{BlobRoot.ToLower()}-table-{OriginalTableName.ToLower()}/{BlobFileName}");
 
                 // If file is compressed, Decompress to a temp file in the blob
                 if (Decompress)
                 {
-                    AZBlob.CloudBlockBlob BlobBlockTemp = directory.GetBlockBlobReference(TempFileName);
-                    AZBlob.CloudBlockBlob BlobBlockRead = directory.GetBlockBlobReference(BlobFileName);
+                    BlobClient blobClientTemp = container.GetBlobClient($"{BlobRoot.ToLower()}-table-{OriginalTableName.ToLower()}/{TempFileName}");
+                    BlobClient blobClientRead = container.GetBlobClient($"{BlobRoot.ToLower()}-table-{OriginalTableName.ToLower()}/{BlobFileName}");
 
-                    using (AZBlob.CloudBlobStream decompressedStream = BlobBlockTemp.OpenWrite())
+                    using (var decompressedStream = blobClientTemp.OpenWrite(true))
                     {
-                        using (Stream readstream = BlobBlockRead.OpenRead())
+                        using (var readStream = blobClientRead.OpenRead())
                         {
-                            using (var zip = new GZipStream(readstream, CompressionMode.Decompress, true))
+                            using (var zip = new GZipStream(readStream, CompressionMode.Decompress, true))
                             {
                                 zip.CopyTo(decompressedStream);
                             }
@@ -495,24 +458,25 @@ namespace TheByteStuff.AzureTableUtilities
                     BlobFileName = TempFileName;
                 }
 
-                AZBlob.CloudBlockBlob BlobBlock = directory.GetBlockBlobReference(BlobFileName);
+                blobClient = container.GetBlobClient($"{BlobRoot.ToLower()}-table-{OriginalTableName.ToLower()}/{BlobFileName}");
 
-                TableServiceClient clientDestination = new TableServiceClient(AzureTableConnectionSpec.ToString());
-                TableItem TableDest = clientDestination.CreateTableIfNotExists(DestinationTableName);
 
-                using (Stream BlobStream = BlobBlock.OpenRead())
+                TableItem TableDest = tableServiceClient.CreateTableIfNotExists(DestinationTableName);
+
+                using (Stream blobStream = blobClient.OpenRead())
                 {
-                    using (StreamReader InputFileStream = new StreamReader(BlobStream))
+                    using (StreamReader inputFileStream = new StreamReader(blobStream))
                     {
-                        string result = RestoreFromStream(InputFileStream, clientDestination, DestinationTableName);
+                        string result = RestoreFromStream(inputFileStream, tableServiceClient, DestinationTableName);
                         if (Decompress)
                         {
-                            AZBlob.CloudBlockBlob BlobBlockTemp = directory.GetBlockBlobReference(TempFileName);
-                            BlobBlockTemp.DeleteIfExists();
+                            BlobClient blobClientTemp = container.GetBlobClient($"{BlobRoot.ToLower()}-table-{OriginalTableName.ToLower()}/{TempFileName}");
+                            blobClientTemp.DeleteIfExists();
                         }
                         return result;
                     }
                 }
+
             }
             catch (ConnectionException cex)
             {
@@ -554,7 +518,7 @@ namespace TheByteStuff.AzureTableUtilities
                     }
                     else if (InFileLine.Contains("ProcessingMetaData") && InFileLine.Contains("Footer"))
                     {
-                        footer = JsonConvert.DeserializeObject<TableSpec>(InFileLine);
+                        footer = System.Text.Json.JsonSerializer.Deserialize<TableSpec>(InFileLine);
                         System.Console.WriteLine(String.Format("Footer {0}", InFileLine));
                     }
                     else
@@ -639,6 +603,54 @@ namespace TheByteStuff.AzureTableUtilities
             }
 
             return String.Format("Restore to table '{0}' Successful; {1} entries.", DestinationTableName, TotalRecordCount);
+        }
+
+        public string RestoreAllTablesFromBlob(string blobRoot, string folder)
+        {
+            var container = blobServiceClient.GetBlobContainerClient(blobRoot);
+            if (!container.Exists())
+                throw new RestoreFailedException(String.Format("Blob container '{0}' does not exist.", blobRoot));
+
+            var restoreResults = new StringBuilder();
+            foreach (BlobHierarchyItem blobItem in container.GetBlobsByHierarchy(prefix: folder, delimiter: "/"))
+            {
+                if (blobItem.IsBlob)
+                {
+                    var tableName = blobItem.Blob.Name.Split('.').First();
+                    var decompress = blobItem.Blob.Name.EndsWith(".7z");
+                    var tempFileName = String.Format("{0}.temp", blobItem.Blob.Name);
+
+                    var blobClient = container.GetBlobClient(blobItem.Blob.Name);
+
+                    // If file is compressed, Decompress to a temp file in the blob
+                    if (decompress)
+                    {
+                        var blobClientTemp = container.GetBlobClient(tempFileName);
+
+                        using (var decompressedStream = blobClientTemp.OpenWrite(true))
+                        using (var readStream = blobClient.OpenRead())
+                        using (var zip = new GZipStream(readStream, CompressionMode.Decompress, true))
+                        {
+                            zip.CopyTo(decompressedStream);
+                        }
+                        blobClient = container.GetBlobClient(tempFileName);
+                    }
+
+                    var TableDest = tableServiceClient.CreateTableIfNotExists(tableName);
+
+                    using (Stream blobStream = blobClient.OpenRead())
+                    using (StreamReader inputFileStream = new StreamReader(blobStream))
+                    {
+                        restoreResults.AppendLine(RestoreFromStream(inputFileStream, tableServiceClient, tableName));
+                        if (decompress)
+                        {
+                            var blobClientTemp = container.GetBlobClient(tempFileName);
+                            blobClientTemp.DeleteIfExists();
+                        }
+                    }
+                }
+            }
+            return restoreResults.ToString();
         }
     }
 }
